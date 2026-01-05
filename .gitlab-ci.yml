@@ -1,0 +1,17 @@
+stages:
+  - build
+  
+build:
+  stage: build
+  artifacts:
+    paths:
+      - launchers/control-plane/control-plane-postgresql-hashicorpvault/build/libs/*.jar
+    expire_in: 30 days
+    when: always
+  image:  gradle:8.8.0-jdk21-jammy
+  script:
+    - ./gradlew :launchers:control-plane:control-plane-postgresql-hashicorpvault:shadowJar
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "master"
+#      changes:
+#        - component-a/**/*
