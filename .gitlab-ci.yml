@@ -12,6 +12,6 @@ build:
   script:
     - ./gradlew :launchers:control-plane:control-plane-postgresql-hashicorpvault:shadowJar
   rules:
-    - if: $CI_COMMIT_REF_NAME == "master"
+    - if: $CI_COMMIT_REF_NAME == "test"
 #      changes:
 #        - component-a/**/*
