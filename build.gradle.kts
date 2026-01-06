@@ -1,4 +1,5 @@
 import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
+import com.bmuschko.gradle.docker.tasks.image.DockerPushImage
 import com.github.jengelman.gradle.plugins.shadow.ShadowJavaPlugin
 
 plugins {
@@ -155,10 +156,15 @@ subprojects {
             loadToKindTask.configure {
                 dependsOn(podmanTask)
             }
+            
+            val imageTag = project.findProperty("imageTag")?.toString() ?: "imageTag"
+            val registryHost = project.findProperty("registryHost")?.toString() ?: "registryHost"
+            val registryNs = project.findProperty("registryNs")?.toString() ?: "registryNs"
 
             val dockerTask: DockerBuildImage = tasks.create("dockerize", DockerBuildImage::class) {
                 project.plugins.apply("com.bmuschko.docker-remote-api")
-                images.add("${project.name}:latest")
+                images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
+                images.add("${registryHost}/${registryNs}/${project.name}:latest")
                 // specify platform with the -Dplatform flag:
                 if (System.getProperty("platform") != null)
                     platform.set(System.getProperty("platform"))
@@ -169,6 +175,20 @@ subprojects {
             // make sure  always runs after "dockerize" and after "copyOtel"
             dockerTask.dependsOn(tasks.named(ShadowJavaPlugin.SHADOW_JAR_TASK_NAME))
                 .dependsOn(downloadOtel)
+
+
+
+            val dockerPushTask: DockerPushImage = tasks.create("dockerPush", DockerPushImage::class) {
+                group = "distribution"
+                description = "Push Docker image to registry"
+                project.plugins.apply("com.bmuschko.docker-remote-api")
+                images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
+                images.add("${registryHost}/${registryNs}/${project.name}:latest")
+            }
+            // Ensure push happens after build
+            dockerPushTask.dependsOn(dockerTask)
+                
+
         }
     }
 }

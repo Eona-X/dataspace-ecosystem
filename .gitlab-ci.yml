@@ -3,15 +3,33 @@ stages:
   
 build:
   stage: build
-  artifacts:
+  services:
+    - name: ${REGISTRY_DIND_IMAGE}
+      alias: docker
+      command: [ "--tls=false" ]
+  variables:
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+    DOCKER_CONFIG: "./gradle"
+  cache:
+    key:
+      files:
+        - gradle/wrapper/gradle-wrapper.properties
     paths:
-      - launchers/control-plane/control-plane-postgresql-hashicorpvault/build/libs/*.jar
-    expire_in: 30 days
-    when: always
-  image:  gradle:8.8.0-jdk21-jammy
+      - cache/caches/
+      - cache/notifications/
+      - cache/wrapper/
+#  artifacts:
+#    paths:
+#      - launchers/control-plane/control-plane-postgresql-hashicorpvault/build/libs/*.jar
+#    expire_in: 30 days
+#    when: always
+  image:  ${REGISTRY_HOST}/${REGISTRY_NS_TOOLS}/gradle:8.8.0-jdk17-jammy
   script:
-    - ./gradlew :launchers:control-plane:control-plane-postgresql-hashicorpvault:shadowJar
+#    - ./gradlew :launchers:control-plane:control-plane-postgresql-hashicorpvault:shadowJar
+    - ./build.sh
   rules:
     - if: $CI_COMMIT_REF_NAME == "test"
 #      changes:
-#        - component-a/**/*
+#        - launchers/control-plane/control-plane-postgresql-hashicorpvault/**/*
