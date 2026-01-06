@@ -30,6 +30,6 @@ build:
 #    - ./gradlew :launchers:control-plane:control-plane-postgresql-hashicorpvault:shadowJar
     - ./build.sh
   rules:
-    - if: $CI_COMMIT_REF_NAME == "test"
+    - if: $CI_COMMIT_REF_NAME == "main"
 #      changes:
 #        - launchers/control-plane/control-plane-postgresql-hashicorpvault/**/*
