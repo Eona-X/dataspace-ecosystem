@@ -165,6 +165,27 @@ spec:
             - name: "EDC_IH_IAM_PUBLICKEY_ALIAS"
               value: {{ .Values.telemetryagent.keys.sts.publicKeyVaultAlias | required ".Values.telemetryagent.keys.sts.publicKeyVaultAlias is required" | quote }}
 
+
+            #######
+            # DID #
+            #######
+            - name: "EDC_IAM_ISSUER_ID"
+              value: {{.Values.telemetryagent.did.web.url | required ".Values.telemetryagent.did.web.url" | quote}}
+            - name: "EDC_IDENTITY_DID_URL"
+              value: {{.Values.telemetryagent.did.web.url | required ".Values.telemetryagent.did.web.url" | quote}}
+            - name: "EDC_IAM_DID_WEB_USE_HTTPS"
+              value: {{.Values.telemetryagent.did.web.useHttps | required ".Values.telemetryagent.did.web.useHttps is required" | quote}}
+
+            #####################
+            # STS REMOTE CONFIG #
+            #####################
+            - name: "EDC_IAM_STS_OAUTH_TOKEN_URL"
+              value: {{.Values.telemetryagent.sts.tokenUrl | required ".Values.telemetryagent.sts.tokenUrl is required" | quote}}
+            - name: "EDC_IAM_STS_OAUTH_CLIENT_ID"
+              value: {{.Values.telemetryagent.sts.clientId | required ".Values.telemetryagent.sts.clientId is required" | quote}}
+            - name: "EDC_IAM_STS_OAUTH_CLIENT_SECRET_ALIAS"
+              value: {{.Values.telemetryagent.sts.clientSecretAlias | required ".Values.telemetryagent.sts.clientSecretAlias is required" | quote}}
+
             #######
             # API #
             #######

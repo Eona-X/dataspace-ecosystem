@@ -6,10 +6,14 @@ import org.eclipse.edc.policy.model.Operator;
 import org.eclipse.edc.policy.model.Permission;
 import org.eclipse.edc.util.reflection.ReflectionUtil;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.eclipse.dse.iam.policy.PolicyConstants.DSE_RESTRICTED_CATALOG_DISCOVERY_CONSTRAINT;
 import static org.eclipse.edc.policy.model.Operator.EQ;
@@ -20,6 +24,7 @@ import static org.eclipse.edc.policy.model.Operator.NEQ;
 public class CatalogDiscoveryConstraintFunction<C extends ParticipantAgentPolicyContext> extends AbstractDynamicCredentialConstraintFunction<C> {
 
     private static final List<Operator> SUPPORTED_OPERATORS = List.of(EQ, NEQ, IN);
+    private static final Pattern STRING_VALUE_PATTERN = Pattern.compile("string=([^,}\\]]+)");
 
     @Override
     public boolean evaluate(Object leftOperand, Operator operator, Object rightOperand, Permission rule, C policyContext) {
@@ -32,10 +37,15 @@ public class CatalogDiscoveryConstraintFunction<C extends ParticipantAgentPolicy
             return false;
         }
 
-        // we do not support list-type right-operands
-        if (operator.equals(IN) && !(rightOperand instanceof List<?>)) {
-            policyContext.reportProblem("When operator is %s, right-operand must be of type List but was '%s'.".formatted(IN.toString(), rightOperand.getClass()));
-            return false;
+        Object processedRightOperand;
+        if (operator.equals(IN)) {
+            List<String> parsedRightOperand = parseToList(rightOperand);
+            if (parsedRightOperand.isEmpty()) {
+                return false;
+            }
+            processedRightOperand = parsedRightOperand;
+        } else {
+            processedRightOperand = rightOperand;
         }
 
         var sanitizedLeftOperand = sanitizeLeftOperand((String) leftOperand);
@@ -64,7 +74,7 @@ public class CatalogDiscoveryConstraintFunction<C extends ParticipantAgentPolicy
 
         return credential.getCredentialSubject().stream()
                 .findFirst()
-                .map(credentialSubject -> evaluateClaims(path, credentialSubject.getClaims(), operator, rightOperand, policyContext))
+                .map(credentialSubject -> evaluateClaims(path, credentialSubject.getClaims(), operator, processedRightOperand, policyContext))
                 .orElseGet(() -> {
                     policyContext.reportProblem("No credential subject found in Credential");
                     return false;
@@ -110,6 +120,42 @@ public class CatalogDiscoveryConstraintFunction<C extends ParticipantAgentPolicy
             sanitized.put(key, entry.getValue());
         }
         return sanitized;
+    }
+
+    public static List<String> parseToList(Object input) {
+        if (input == null) {
+            return Collections.emptyList();
+        }
+
+        String raw = input.toString().trim();
+        List<String> result = new ArrayList<>();
+
+        Matcher matcher = STRING_VALUE_PATTERN.matcher(raw);
+
+        while (matcher.find()) {
+            result.add(matcher.group(1));
+        }
+
+        if (!result.isEmpty()) {
+            return result;
+        }
+
+        if (raw.length() <= 2) {
+            return Collections.emptyList();
+        }
+
+        raw = raw.substring(1, raw.length() - 1).trim();
+
+        String[] parts = raw.split("\\s*,\\s*");
+
+        for (String part : parts) {
+            part = part.replaceAll("^['\"]|['\"]$", "");
+            if (!part.isEmpty()) {
+                result.add(part);
+            }
+        }
+
+        return result;
     }
 
 }

@@ -54,8 +54,7 @@ public class CatalogFilteringController implements FederatedCatalogFilteringApiV
 
     private final AuthorityCatalogDidResolver authorityCatalogDidResolver;
 
-    private static final String MEMBERSHIP_SCOPE = "%s:MembershipCredential:read".formatted(DSE_VC_TYPE_SCOPE_ALIAS);
-    private static final String READ_DOMAIN_CREDENTIAL_SCOPE = "%s:DomainCredential:read".formatted(DSE_VC_TYPE_SCOPE_ALIAS);
+    private static final String READ_ALL_CREDENTIAL_SCOPE = "%s:VerifiableCredential:read".formatted(DSE_VC_TYPE_SCOPE_ALIAS);
 
     public CatalogFilteringController(AuthorityCatalogDidResolver authorityCatalogDidResolver, Monitor monitor,
                                       IdentityService identityService, String ownDid, Clock clock, String authorityDid,
@@ -81,7 +80,7 @@ public class CatalogFilteringController implements FederatedCatalogFilteringApiV
         }
         String catalogFilterUrl = catalogFilterUrlResult.getContent();
         String filteredCatalog = null;
-        List<String> scopes = List.of(MEMBERSHIP_SCOPE, READ_DOMAIN_CREDENTIAL_SCOPE);
+        List<String> scopes = List.of(READ_ALL_CREDENTIAL_SCOPE);
         var tokenParametersBuilder = TokenParameters.Builder.newInstance();
         tokenParametersBuilder
                 .claims(ISSUER, ownDid)

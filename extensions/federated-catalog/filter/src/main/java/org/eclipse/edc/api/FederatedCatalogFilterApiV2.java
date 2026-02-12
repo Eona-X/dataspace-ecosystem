@@ -17,19 +17,36 @@ package org.eclipse.edc.api;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.edc.FilterRequest;
 
 
-@OpenAPIDefinition
+@OpenAPIDefinition(security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")})
 @Tag(name = "Federated Catalog Filter",
-        description = "A service that allows the filtering of the assets in the federated catalog based on partiicpant vcs")
+        description = "A service that allows the filtering of the assets in the federated catalog based on participant vcs")
+@SecurityScheme(
+        name = "bearerAuth",
+        type = SecuritySchemeType.HTTP,
+        scheme = "bearer",
+        bearerFormat = "JWT"
+)
+@SecurityScheme(
+        name = "apiKeyAuth",
+        type = SecuritySchemeType.APIKEY,
+        in = SecuritySchemeIn.HEADER,
+        paramName = "x-api-key"
+)
 public interface FederatedCatalogFilterApiV2 {
 
 
     @Operation(description = "Filters federated catalog assets based on participant vcs",
+            security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")},
             responses = {
                     @ApiResponse(responseCode = "204", description = "No catalog entries after filtering"),
                     @ApiResponse(responseCode = "400", description = "Missing access token"),

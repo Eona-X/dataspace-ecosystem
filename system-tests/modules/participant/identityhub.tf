@@ -1,15 +1,17 @@
 locals {
   identityhub_release_name = "${var.participant_name}-identityhub"
-  did_url                  = "did:web:${local.identityhub_release_name}%3A8383:api:did"
+
+  did_url                  = var.selfhosted_did_url != "" ? var.selfhosted_did_url : "did:web:${local.identityhub_release_name}%3A8383:api:did"
   sts_port                 = 8484
   sts_path                 = "/api/sts"
-  sts_url                  = "http://${local.identityhub_release_name}:${local.sts_port}${local.sts_path}/token"
+  sts_url                  = var.selfhosted_sts_url != "" ? var.selfhosted_sts_url : "http://${local.identityhub_release_name}:${local.sts_port}${local.sts_path}/token"
   sts_client_secret_alias  = "${local.did_url}-sts-client-secret"
   did_url_base64_url       = replace(replace(replace(base64encode(local.did_url), "+", "-"), "/", "_"), "=", "")
 
   participant_identity_hub_image = (
     var.environment == "local" ? "localhost/identity-hub-postgresql-hashicorpvault" :
     var.environment == "devbox" ? "${var.devbox-registry}/identity-hub-postgresql-hashicorpvault" :
+    var.environment == "selfhosted" ? var.identity_hub_image :
     "identity-hub-postgresql-hashicorpvault"
   )
 
@@ -21,7 +23,7 @@ resource "helm_release" "identity-hub" {
   cleanup_on_fail   = true
   dependency_update = true
   recreate_pods     = true
-  repository        = "../charts"
+  repository        = var.charts_path
   chart             = "identity-hub"
   # version           = "latest"
 
@@ -37,7 +39,7 @@ resource "helm_release" "identity-hub" {
         "image" : {
           "repository" : local.participant_identity_hub_image
           "tag" : "latest"
-          "pullPolicy" : var.environment == "local" ? "Never" : "IfNotPresent"
+          "pullPolicy" : local.image_pull_policy
         },
         "keys" : {
           "sts" : {
@@ -91,22 +93,22 @@ edc.vault.hashicorp.token.scheduled-renew-enabled=false
           "endpoints" : [
             {
               "port" : 8181,
-              "path" : "/${var.participant_name}/ih/(identity)(.*)",
+              "path" : "${var.participant_with_prefix}/ih/(identity)(.*)",
               "pathType" : "ImplementationSpecific"
             },
             {
               "port" : 8282,
-              "path" : "/${var.participant_name}/ih/(credentials)(.*)",
+              "path" : "${var.participant_with_prefix}/ih/(credentials)(.*)",
               "pathType" : "ImplementationSpecific"
             },
             {
               "port" : 8383,
-              "path" : "/${var.participant_name}/ih/(did)(.*)",
+              "path" : "${var.participant_with_prefix}/ih/(did)(.*)",
               "pathType" : "ImplementationSpecific"
             },
             {
               "port" : 8484,
-              "path" : "/${var.participant_name}/ih/(sts)(.*)",
+              "path" : "${var.participant_with_prefix}/ih/(sts)(.*)",
               "pathType" : "ImplementationSpecific"
             }
           ]

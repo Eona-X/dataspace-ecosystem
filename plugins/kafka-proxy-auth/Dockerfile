@@ -1,3 +1,5 @@
+# Multi-architecture support: kafka-proxy supports linux/amd64 and linux/arm64
+# The base image will be selected based on the target platform
 FROM grepplabs/kafka-proxy:0.4.3-all
 USER root
 

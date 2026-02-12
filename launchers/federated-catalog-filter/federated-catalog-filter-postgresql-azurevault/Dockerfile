@@ -1,8 +1,10 @@
 ARG REGISTRY_URL="docker.io"
 # Please make sure to keep this image consistent with the one used
 # for the cert-installer init container
-FROM ${REGISTRY_URL}/eclipse-temurin:21.0.7_6-jre-alpine-3.21
+FROM ${REGISTRY_URL}/eclipse-temurin:21.0.9_10-jre-alpine-3.23
 
+# Update Alpine packages to remove vulnerabilities
+RUN apk update && apk --no-cache upgrade --available
 
 # Optional JVM arguments, such as memory settings
 ARG JVM_ARGS=""
@@ -26,6 +28,10 @@ HEALTHCHECK NONE
 # default api
 ENV WEB_HTTP_PORT="8080"
 ENV WEB_HTTP_PATH="/api"
+
+# catalog api
+ENV WEB_HTTP_CATALOG_PORT="8383"
+ENV WEB_HTTP_CATALOG_PATH="/api/catalogfilter"
 
 # ARG can not be used in ENTRYPOINT so storing value in an ENV variable
 ENV ENV_JVM_ARGS=$JVM_ARGS

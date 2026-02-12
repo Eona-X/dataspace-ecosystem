@@ -15,9 +15,26 @@ kafkaProxy:
     image:
       registry: ""
       repository: ""
-      tag: "latest"
+      tag: ""
       pullPolicy: IfNotPresent
-    
+
+    initContainers:
+      - name: cert-installer
+        command:
+          - /bin/sh
+        volumeMounts:
+          - name: cert-volume
+            mountPath: /certs
+          - name: cacerts-volume
+            mountPath: /certificates
+        image: 'eclipse-temurin:21.0.9_10-jre-alpine-3.23'
+        args:
+          - '-c'
+          - |
+            cp $JAVA_HOME/lib/security/cacerts /certificates/cacerts
+            keytool -import -trustcacerts -keystore /certificates/cacerts \
+              -storepass changeit -noprompt -alias vaultCa -file /certs/tls.crt
+
     # Resource limits and requests
     resources:
       limits:
@@ -50,6 +67,7 @@ kafkaProxy:
     namespace: "default"
     proxyImage: "grepplabs/kafka-proxy:0.4.2"
     sharedDir: "/shared"
+    certDir: "/certificates"
     checkInterval: 15
     enableLock: true
     lockFilePath: "/tmp/kubectl-deployer.lock"
@@ -69,6 +87,13 @@ kafkaProxy:
     # This is the port that will be used for the Kafka proxy service
     # Default: 30001
     baseProxyPort: 30001
+    
+    # Maximum number of broker ports to expose
+    # For multi-broker Kafka clusters, the proxy needs to expose sequential ports
+    # starting from baseProxyPort+1 up to baseProxyPort+maxBrokerPorts
+    # This should be set to at least the number of brokers in your largest Kafka cluster
+    # Default: 20 (supports clusters with up to 20 brokers)
+    maxBrokerPorts: 20
     
     # Downstream Authentication Configuration
     # Configures how clients authenticate to the proxy's listener

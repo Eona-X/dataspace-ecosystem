@@ -2,6 +2,7 @@ locals {
   telemetry_agent_image = (
     var.environment == "local" ? "localhost/telemetry-agent-postgresql-hashicorpvault" :
     var.environment == "devbox" ? "${var.devbox-registry}/telemetry-agent-postgresql-hashicorpvault" :
+    var.environment == "selfhosted" ? var.telemetry_agent_image :
     "telemetry-agent-postgresql-hashicorpvault"
   )
   namespace                    = "local-eventhub-eventhubs"
@@ -18,7 +19,7 @@ resource "helm_release" "telemetryagent" {
   cleanup_on_fail   = true
   dependency_update = true
   recreate_pods     = true
-  repository        = "../charts"
+  repository        = var.charts_path
   chart             = "telemetry-agent"
   # version           = "latest"
 
@@ -35,7 +36,7 @@ resource "helm_release" "telemetryagent" {
         "image" : {
           "repository" : local.telemetry_agent_image
           "tag" : "latest"
-          "pullPolicy" : var.environment == "local" ? "Never" : "IfNotPresent"
+          "pullPolicy" : local.image_pull_policy
         },
         "keys" : {
           "sts" : {
@@ -51,6 +52,12 @@ resource "helm_release" "telemetryagent" {
         },
         "authority" : {
           "did" : local.authority_did
+        }
+
+        "sts" : {
+          "tokenUrl" : local.sts_url
+          "clientId" : local.did_url,
+          "clientSecretAlias" : local.sts_client_secret_alias
         }
 
         "logging" : <<EOT
@@ -111,4 +118,3 @@ edc.vault.hashicorp.token.scheduled-renew-enabled=false
   ]
   depends_on = [module.vault, module.db]
 }
-

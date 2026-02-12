@@ -1,5 +1,8 @@
 ARG REGISTRY_URL="docker.io"
-FROM ${REGISTRY_URL}/eclipse-temurin:21.0.7_6-jre-alpine-3.21
+FROM ${REGISTRY_URL}/eclipse-temurin:21.0.9_10-jre-alpine-3.23
+
+# Update Alpine packages to remove vulnerabilities
+RUN apk update && apk --no-cache upgrade --available
 
 # Optional JVM arguments, such as memory settings
 ARG JVM_ARGS=""
@@ -8,8 +11,14 @@ ARG OTEL_JAR
 
 WORKDIR /app
 
+# Create a group and user (non-root) with fixed UID/GID
+RUN addgroup -g 1000 appuser && adduser -u 1000 -G appuser -s /bin/sh -D appuser
+
 COPY ${JAR} telemetrystorageservice.jar
 COPY ${OTEL_JAR} opentelemetry-javaagent.jar
+
+# Change ownership of /app to the non-root user
+RUN chown -R appuser:appuser /app
 
 HEALTHCHECK NONE
 
@@ -19,6 +28,9 @@ ENV WEB_HTTP_PATH="/api"
 
 # ARG can not be used in ENTRYPOINT so storing value in an ENV variable
 ENV ENV_JVM_ARGS=$JVM_ARGS
+
+# Execute the container as non-root user
+USER appuser
 
 CMD ["java", \
     "-javaagent:/app/opentelemetry-javaagent.jar", \

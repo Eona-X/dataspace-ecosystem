@@ -34,6 +34,9 @@ data:
     {{- if .Values.kafkaProxy.manager.baseProxyPort }}
     kafka.proxy.base.port={{ .Values.kafkaProxy.manager.baseProxyPort }}
     {{- end }}
+    {{- if .Values.kafkaProxy.manager.maxBrokerPorts }}
+    kafka.proxy.max.broker.ports={{ .Values.kafkaProxy.manager.maxBrokerPorts }}
+    {{- end }}
     
     # Downstream Authentication Configuration
     # How clients authenticate to the proxy listener

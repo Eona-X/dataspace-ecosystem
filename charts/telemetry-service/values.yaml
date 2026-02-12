@@ -23,7 +23,7 @@ telemetryservice:
         mountPath: /certs
       - name: shared-volume
         mountPath: /shared
-    image: 'eclipse-temurin:21.0.7_6-jre-alpine-3.21'
+    image: 'eclipse-temurin:21.0.9_10-jre-alpine-3.23'
     args:
       - '-c'
       - |
@@ -132,6 +132,13 @@ telemetryservice:
         secret: /v1/secret
         folder: ""
         health: /v1/sys/health
+
+
+  # -- STS remote config
+  sts:
+    tokenUrl: ""
+    clientId: ""
+    clientSecretAlias: ""
 
 
   service:

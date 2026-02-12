@@ -33,7 +33,7 @@ public class KafkaIntermediary {
             Process process = pb.start();
 
             try (OutputStream os = process.getOutputStream();
-                 PrintWriter writer = new PrintWriter(os, true)) {
+                    PrintWriter writer = new PrintWriter(os, true)) {
                 writer.println(message);
             }
 
@@ -63,7 +63,7 @@ public class KafkaIntermediary {
 
 
     public static boolean waitForKafkaMessage(String serviceName, int podPort, String topic,
-                                        String expectedMessage, Duration timeout, String kafkacatPod) throws Exception {
+                                              String expectedMessage, Duration timeout, String kafkacatPod) throws Exception {
         List<String> kcatCmd = Arrays.asList(
                 "kcat",
                 "-b", serviceName + ":" + podPort,

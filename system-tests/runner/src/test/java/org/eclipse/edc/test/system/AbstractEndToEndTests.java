@@ -12,6 +12,7 @@ import org.eclipse.edc.spi.monitor.Monitor;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
@@ -33,7 +34,6 @@ public class AbstractEndToEndTests {
 
     protected List<JsonObject> queryParticipantDatasets(AbstractAuthority authority, String participantDid, String catalogUrl) {
         AtomicReference<List<JsonObject>> datasets = new AtomicReference<>();
-
         await().atMost(TEST_TIMEOUT)
                 .pollInterval(TEST_POLL_INTERVAL)
                 .untilAsserted(() -> {
@@ -41,10 +41,7 @@ public class AbstractEndToEndTests {
                             .filter(isCatalogOf(participantDid))
                             .findFirst()
                             .orElseThrow(() -> new AssertionError("Failed to find Catalog for participant %s".formatted(participantDid)));
-
-                    datasets.set(catalog.getJsonArray(DCAT_DATASET_ATTRIBUTE).stream()
-                            .map(JsonValue::asJsonObject)
-                            .toList());
+                    datasets.set(Optional.ofNullable(catalog.getJsonArray(DCAT_DATASET_ATTRIBUTE)).map(arr -> arr.stream().map(JsonValue::asJsonObject).toList()).orElse(List.of()));
                 });
 
         return datasets.get();

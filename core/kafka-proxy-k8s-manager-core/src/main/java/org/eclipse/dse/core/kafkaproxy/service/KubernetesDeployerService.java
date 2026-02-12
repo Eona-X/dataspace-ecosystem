@@ -32,14 +32,15 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
+import static org.eclipse.dse.core.kafkaproxy.config.KafkaProxyConfig.LARGEST_AVAILABLE_PORT;
 
 /**
  * Service for managing Kubernetes deployments of Kafka proxies
  */
 public class KubernetesDeployerService {
-    
+
     private static final Logger LOGGER = Logger.getLogger(KubernetesDeployerService.class.getName());
-    
+
     private final KubernetesClient kubernetesClient;
     private final String proxyNamespace;
     private final String proxyImage;
@@ -65,26 +66,15 @@ public class KubernetesDeployerService {
     // Additional pod labels from configuration
     private final Map<String, String> additionalPodLabels;
     
-    public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage, VaultService vaultService, String participantId) {
-        this(kubernetesClient, proxyNamespace, proxyImage, vaultService, participantId, null, 30001, false, "PLAIN", null, null, null, null, false, null, null, null, new HashMap<>());
-    }
-    
-    public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage, 
-                                   VaultService vaultService, String participantId, String clusterIp, int baseProxyPort, boolean authEnabled, String authMechanism,
-                                   String authTenantId, String authClientId, String authStaticUsers, String authImage,
-                                   boolean tlsListenerEnabled, String tlsListenerCertSecret, 
-                                   String tlsListenerKeySecret, String tlsListenerCaSecret) {
-        this(kubernetesClient, proxyNamespace, proxyImage, vaultService, participantId, clusterIp, baseProxyPort, authEnabled, authMechanism,
-                authTenantId, authClientId, authStaticUsers, authImage, tlsListenerEnabled, tlsListenerCertSecret,
-                tlsListenerKeySecret, tlsListenerCaSecret, new HashMap<>());
-    }
-    
+    // Maximum number of broker ports to expose (for multi-broker clusters)
+    private final int maxBrokerPorts;
+
     public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage, 
                                    VaultService vaultService, String participantId, String clusterIp, int baseProxyPort, boolean authEnabled, String authMechanism,
                                    String authTenantId, String authClientId, String authStaticUsers, String authImage,
                                    boolean tlsListenerEnabled, String tlsListenerCertSecret, 
                                    String tlsListenerKeySecret, String tlsListenerCaSecret,
-                                   Map<String, String> additionalPodLabels) {
+                                   Map<String, String> additionalPodLabels, int maxBrokerPorts) {
         this.kubernetesClient = kubernetesClient;
         this.proxyNamespace = proxyNamespace;
         this.proxyImage = proxyImage;
@@ -103,6 +93,7 @@ public class KubernetesDeployerService {
         this.tlsListenerKeySecret = tlsListenerKeySecret;
         this.tlsListenerCaSecret = tlsListenerCaSecret;
         this.additionalPodLabels = additionalPodLabels != null ? new HashMap<>(additionalPodLabels) : new HashMap<>();
+        this.maxBrokerPorts = maxBrokerPorts;
     }
     
     /**
@@ -373,10 +364,7 @@ public class KubernetesDeployerService {
                                 .withName("kafka-proxy")
                                 .withImage(authEnabled && authImage != null ? authImage : proxyImage)
                                 .withImagePullPolicy("IfNotPresent")
-                                .withPorts(new ContainerPortBuilder()
-                                        .withContainerPort(port)
-                                        .withName("proxy-port")
-                                        .build())
+                                .withPorts(createContainerPorts(port))
                                 .withArgs(args)
                                 .withEnv(createEnvironmentVariables(edrKey, properties))
                                 .withVolumeMounts(createVolumeMounts(properties))
@@ -386,6 +374,66 @@ public class KubernetesDeployerService {
                     .endTemplate()
                 .endSpec()
                 .build();
+    }
+    
+    /**
+     * Creates container port definitions for the proxy.
+     * Includes the base port plus sequential ports for each broker in the cluster.
+     */
+    private java.util.List<io.fabric8.kubernetes.api.model.ContainerPort> createContainerPorts(int basePort) {
+        var ports = new java.util.ArrayList<io.fabric8.kubernetes.api.model.ContainerPort>();
+        
+        // Add base bootstrap port
+        ports.add(new ContainerPortBuilder()
+                .withContainerPort(basePort)
+                .withName("proxy-port")
+                .withProtocol("TCP")
+                .build());
+        
+        // Add sequential ports for each broker (starting from basePort+1)
+        for (int i = 1; i <= maxBrokerPorts && basePort + maxBrokerPorts <= LARGEST_AVAILABLE_PORT; i++) {
+            ports.add(new ContainerPortBuilder()
+                    .withContainerPort(basePort + i)
+                    .withName(format("broker-port-%d", i))
+                    .withProtocol("TCP")
+                    .build());
+        }
+        
+        LOGGER.info(format("Exposing %d container ports: base port %d + %d broker ports (%d-%d)",
+                ports.size(), basePort, maxBrokerPorts, basePort + 1, basePort + maxBrokerPorts));
+        
+        return ports;
+    }
+    
+    /**
+     * Creates service port definitions for the proxy.
+     * Includes the base port plus sequential ports for each broker in the cluster.
+     */
+    private java.util.List<io.fabric8.kubernetes.api.model.ServicePort> createServicePorts(int basePort) {
+        var ports = new java.util.ArrayList<io.fabric8.kubernetes.api.model.ServicePort>();
+        
+        // Add base bootstrap port
+        ports.add(new ServicePortBuilder()
+                .withName("proxy-port")
+                .withPort(basePort)
+                .withTargetPort(new IntOrString(basePort))
+                .withProtocol("TCP")
+                .build());
+        
+        // Add sequential ports for each broker (starting from basePort+1)
+        for (int i = 1; i <= maxBrokerPorts && basePort + maxBrokerPorts <= LARGEST_AVAILABLE_PORT; i++) {
+            ports.add(new ServicePortBuilder()
+                    .withName(format("broker-port-%d", i))
+                    .withPort(basePort + i)
+                    .withTargetPort(new IntOrString(basePort + i))
+                    .withProtocol("TCP")
+                    .build());
+        }
+        
+        LOGGER.info(format("Exposing %d service ports: base port %d + %d broker ports (%d-%d)",
+                ports.size(), basePort, maxBrokerPorts, basePort + 1, basePort + maxBrokerPorts));
+        
+        return ports;
     }
     
     private java.util.List<io.fabric8.kubernetes.api.model.EnvVar> createEnvironmentVariables(String edrKey, EdrProperties properties) {
@@ -557,12 +605,7 @@ public class KubernetesDeployerService {
                 .endMetadata()
                 .withNewSpec()
                     .withSelector(Map.of("app", proxyName))  // Selector points to deployment
-                    .withPorts(new ServicePortBuilder()
-                            .withName("proxy-port")
-                            .withPort(port)
-                            .withTargetPort(new IntOrString(port))
-                            .withProtocol("TCP")
-                            .build())
+                    .withPorts(createServicePorts(port))
                     .withType("ClusterIP")
                 .endSpec();
         
@@ -591,7 +634,8 @@ public class KubernetesDeployerService {
         // The advertised address should be the standardized service name
         args.add(format("--bootstrap-server-mapping=%s,0.0.0.0:%d,%s:%d", 
                 cleanBootstrapServers, port, serviceName, port));
-        args.add(format("--dynamic-advertised-listener=%s:%d", serviceName, port));
+        args.add(format("--dynamic-advertised-listener=%s", serviceName));
+        args.add(format("--dynamic-sequential-min-port=%d", port + 1));
         
         // Add SASL configuration based on mechanism
         if ("PLAIN".equals(properties.getSaslMechanism())) {

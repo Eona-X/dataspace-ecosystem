@@ -15,6 +15,7 @@ include(":extensions:agreements:retirement-evaluation-store-sql")
 
 include(":extensions:common:vc-revocation-patch")
 include(":extensions:common:policies")
+include(":extensions:common:odrl-policy-did-validation")
 include(":extensions:common:metrics:custom-micrometer")
 include(":extensions:common:store:sql:telemetry-store-sql")
 
@@ -121,20 +122,20 @@ include(":system-tests:runner")
 pluginManagement {
     repositories {
         mavenLocal()
-        maven {
-            url = uri("https://oss.sonatype.org/content/repositories/snapshots/")
-        }
-        mavenCentral()
         gradlePluginPortal()
+        mavenCentral()
+        maven {
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+        }
     }
 }
-
 dependencyResolutionManagement {
     repositories {
         mavenLocal()
+        gradlePluginPortal()
         mavenCentral()
         maven {
-            url = uri("https://oss.sonatype.org/content/repositories/snapshots/")
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
         }
     }
 }

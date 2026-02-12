@@ -3,6 +3,7 @@
 ## Prerequisite
 
 - Terraform
+- Podman or Docker
 - Kind
 - cURL or Postman
 
@@ -99,6 +100,48 @@ To destroy the dataspace run the following command:
 terraform -chdir=system-tests destroy -auto-approve -var="environment=local"
 ```
 
+## (Optional) Deploy a single connector:
+
+To deploy a single connector, due to the dependency on the Database, one of the following conditions must be met:  
+- the full Dataspace is already deployed;
+- the Database is already deployed; this can be done by running the following command inside "system-tests" folder:
+
+  ```
+  terraform apply -target=module.postgres -auto-approve
+  ```
+
+> Please note that in case the Dataspace is already deployed, deploying another connector on top of it may fail on a local machine due to the high consumption of memory. Hence the second approach is preferred.
+- Once the Database is deployed, the file *standalone-providers.tf.disabled* should be renamed to *standalone-providers.tf*
+- Declare a terraform.tfvars file with at least the following:
+
+```
+# Participant Configuration for Self-hosted
+participant_name = "your-participant-name"
+
+# Container Images for Self-Hosted Environments
+control_plane_image      = "control-plane-postgresql-hashicorpvault"
+data_plane_image         = "data-plane-postgresql-hashicorpvault"
+identity_hub_image       = "identity-hub-postgresql-hashicorpvault"
+telemetry_agent_image    = "telemetry-agent-postgresql-hashicorpvault"
+
+# Kubernetes Configuration (for standalone mode)
+# Replace "kind-dse-cluster" with your actual Kubernetes context name (for example, the output of `kubectl config current-context`)
+kube_context     = "kind-dse-cluster"
+kube_config_path = "~/.kube/config"
+# Environment Configuration
+environment          = "selfhosted"
+
+# Charts Path (relative to participant module)
+charts_path = "../../../charts"
+
+```
+
+- Inside the *participant* folder run:
+```
+terraform init
+terraform destroy
+terraform apply -auto-approve
+```
 
 ## Run the tests
 

@@ -1,5 +1,5 @@
 locals {
-  event_hub_image = "mcr.microsoft.com/azure-messaging/eventhubs-emulator"
+  event_hub_image = "mcr.microsoft.com/azure-messaging/eventhubs-emulator:${var.eventhub_emulator_version}"
   blob_server     = "local-eventhub-azurite"
   metadata_server = "local-eventhub-azurite"
   accept_eula     = "Y"

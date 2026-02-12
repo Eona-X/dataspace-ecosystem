@@ -6,6 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.JwtException;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
@@ -132,7 +133,8 @@ public class TelemetryCsvManagerApiController implements TelemetryCsvManagerApi 
         return month == null || month < 1 || month > 12;
     }
 
-    // This api will not be exposed via APIM, it is meant to be used only internally
+    // This api will not be exposed via APIM, it is meant to be used only internally, therefore we hide it from the OpenAPI documentation
+    @Operation(hidden = true)
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces("application/json")

@@ -33,9 +33,14 @@ resource "helm_release" "telemetryservice" {
           "pullPolicy" : var.environment == "local" ? "Never" : "IfNotPresent"
           "tag" : "latest"
         },
+        "sts" : {
+          "tokenUrl" : local.sts_url
+          "clientId" : local.did_url,
+          "clientSecretAlias" : local.sts_client_secret_alias
+        }
         "did" : {
           "web" : {
-            "url" : local.did_url,
+            "url" : local.did_url
             "useHttps" : false
           }
         },
@@ -50,6 +55,7 @@ resource "helm_release" "telemetryservice" {
                EOT
 
         "config" : <<EOT
+edc.iam.trusted-issuer.authority.id=${local.authority_did}
 edc.vault.hashicorp.token.scheduled-renew-enabled=false
         EOT
 

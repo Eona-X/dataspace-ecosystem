@@ -290,12 +290,12 @@
                         },
                         "odrl:constraint": {
                             "odrl:leftOperand": {
-                                "@id": "eox-policy:GenericClaim.$.DomainCredential.domain"
+                                "@id": "eox-policy:RestrictedDiscoveryClaim.$.DomainCredential.domain"
                             },
                             "odrl:operator": {
                                 "@id": "odrl:isPartOf"
                             },
-                            "odrl:rightOperand": "[{@value={valueType=STRING, chars=route, string=route}}, {@value={valueType=STRING, chars=travel, string=travel}}]"
+                            "odrl:rightOperand": "[route,travel]"
                         }
                     },
                     "odrl:prohibition": [],

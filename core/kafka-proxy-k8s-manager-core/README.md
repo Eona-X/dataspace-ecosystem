@@ -757,6 +757,8 @@ kafka.proxy.edr.prefix=edr--
 | `kafka.proxy.lock.file.path` | String | `/tmp/kubectl-deployer.lock` | Path to lock file. Must be in a directory writable by the service. Lock is automatically released after 5 minutes if process crashes. |
 | `kafka.proxy.kubeconfig.path` | String | N/A (optional) | Path to kubeconfig file for external cluster access. If not set, uses in-cluster ServiceAccount authentication (recommended for pod deployments). |
 | `kafka.proxy.participant.id` | String | N/A (optional) | Participant identifier for proxy ownership isolation. Used to prevent cross-consumer proxy deletion by ensuring each participant only manages their own proxies. If not set, falls back to `edc.participant.id` environment variable. Critical for multi-tenant deployments. |
+| `kafka.proxy.base.port` | Integer | `30001` | Base port for Kafka proxy service. This is the bootstrap port that clients connect to. |
+| `kafka.proxy.max.broker.ports` | Integer | `20` | Maximum number of broker ports to expose for multi-broker Kafka clusters. The proxy exposes sequential ports starting from `baseProxyPort+1` up to `baseProxyPort+maxBrokerPorts` to handle individual broker connections. Set this to at least the number of brokers in your largest Kafka cluster. Default of 20 supports clusters with up to 20 brokers. |
 
 **Example Kubernetes Configuration:**
 ```properties
@@ -767,6 +769,8 @@ kafka.proxy.check.interval=15
 kafka.proxy.enable.lock=true
 kafka.proxy.lock.file.path=/tmp/kubectl-deployer.lock
 kafka.proxy.participant.id=did:web:consumer.example.com
+kafka.proxy.base.port=30001
+kafka.proxy.max.broker.ports=20
 ```
 
 #### Downstream Authentication Configuration
@@ -861,6 +865,8 @@ kafka.proxy.check.interval=15
 kafka.proxy.enable.lock=true
 kafka.proxy.lock.file.path=/tmp/kubectl-deployer.lock
 kafka.proxy.participant.id=did:web:consumer.example.com
+kafka.proxy.base.port=30001
+kafka.proxy.max.broker.ports=20
 
 # ============================================
 # Downstream Authentication

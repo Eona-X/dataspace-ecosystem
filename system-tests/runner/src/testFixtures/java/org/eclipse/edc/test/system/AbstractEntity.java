@@ -28,10 +28,9 @@ abstract class AbstractEntity {
 
     protected abstract String identityHubIdentityUrl();
 
-    public void requestCredential(String issuerDid, String credentialType) {
+    public void requestCredential(String issuerDid, String credentialType, String credentialDefinitionId) {
         var dto = new CredentialRequestDto(issuerDid, did() + credentialType, List.of(
-                new CredentialDescriptor(CredentialFormat.VC1_0_JWT.name(), credentialType)));
-
+                new CredentialDescriptor(CredentialFormat.VC1_0_JWT.name(), credentialType, credentialDefinitionId)));
         given()
                 .baseUri(identityHubIdentityUrl())
                 .body(dto)

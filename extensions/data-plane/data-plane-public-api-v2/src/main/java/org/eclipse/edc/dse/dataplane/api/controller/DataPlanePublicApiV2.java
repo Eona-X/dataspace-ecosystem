@@ -17,12 +17,28 @@ package org.eclipse.edc.dse.dataplane.api.controller;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.container.AsyncResponse;
 import jakarta.ws.rs.container.ContainerRequestContext;
 
-@OpenAPIDefinition
+@OpenAPIDefinition(security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")})
+@SecurityScheme(
+        name = "bearerAuth",
+        type = SecuritySchemeType.HTTP,
+        scheme = "bearer",
+        bearerFormat = "JWT"
+)
+@SecurityScheme(
+        name = "apiKeyAuth",
+        type = SecuritySchemeType.APIKEY,
+        in = SecuritySchemeIn.HEADER,
+        paramName = "x-api-key"
+)
 @Tag(name = "Data Plane public API",
         description = "The public API of the Data Plane is a data proxy enabling a data consumer to actively query" +
                 "data from the provider data source (e.g. backend Rest API, internal database...) through its Data Plane" +

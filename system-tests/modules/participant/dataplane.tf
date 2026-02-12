@@ -17,6 +17,7 @@ locals {
   data_plane_image = (
     var.environment == "local" ? "localhost/data-plane-postgresql-hashicorpvault" :
     var.environment == "devbox" ? "${var.devbox-registry}/data-plane-postgresql-hashicorpvault" :
+    var.environment == "selfhosted" ? var.data_plane_image :
     "data-plane-postgresql-hashicorpvault"
   )
 }
@@ -26,7 +27,7 @@ resource "helm_release" "dataplane" {
   cleanup_on_fail   = true
   dependency_update = true
   recreate_pods     = true
-  repository        = "../charts"
+  repository        = var.charts_path
   chart             = "data-plane"
   # version           = "latest"
 
@@ -41,7 +42,7 @@ resource "helm_release" "dataplane" {
         "initContainers" : [],
         "image" : {
           "repository" : local.data_plane_image
-          "pullPolicy" : var.environment == "local" ? "Never" : "IfNotPresent"
+          "pullPolicy" : local.image_pull_policy
           "tag" : "latest"
         },
         "did" : {
@@ -82,12 +83,12 @@ edc.dataplane.state-machine.iteration-wait-millis=${var.data_plane_state_machine
           "endpoints" : [
             {
               "port" : 8181,
-              "path" : "/${var.participant_name}/dp/(public)(.*)",
+              "path" : "${var.participant_with_prefix}/dp/(public)(.*)",
               "pathType" : "ImplementationSpecific"
             },
             {
               "port" : 8282,
-              "path" : "/${var.participant_name}/dp/(data)(.*)",
+              "path" : "${var.participant_with_prefix}/dp/(data)(.*)",
               "pathType" : "ImplementationSpecific"
             }
           ]
@@ -114,7 +115,7 @@ edc.dataplane.state-machine.iteration-wait-millis=${var.data_plane_state_machine
             "token" : {
               "secret" : {
                 "name" : module.vault.vault_secret_name,
-                "tokenKey" : "rootToken"
+                "tokenKey" : var.selfhosted_vault_token_secret_key != "" ? var.selfhosted_vault_token_secret_key : "rootToken"
               }
             }
           }

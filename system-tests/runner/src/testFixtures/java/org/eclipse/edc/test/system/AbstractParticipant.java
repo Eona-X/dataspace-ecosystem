@@ -152,8 +152,8 @@ abstract class AbstractParticipant extends AbstractEntity {
                 .build();
     }
 
-    public void finishDataTransfer(String transferId){
-       participantClient().terminateTransfer(transferId);
+    public void finishDataTransfer(String transferId) {
+        participantClient().terminateTransfer(transferId);
     }
 
     public static class ParticipantClient extends Participant {

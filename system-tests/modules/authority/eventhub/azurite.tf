@@ -1,5 +1,5 @@
 locals {
-  azurite_image = "mcr.microsoft.com/azure-storage/azurite"
+  azurite_image = "mcr.microsoft.com/azure-storage/azurite:${var.azurite_version}"
 }
 
 resource "kubernetes_stateful_set" "azurite" {
@@ -28,6 +28,7 @@ resource "kubernetes_stateful_set" "azurite" {
         container {
           name  = "azurite"
           image = local.azurite_image
+          args  = ["azurite", "--skipApiVersionCheck", "--blobHost", "0.0.0.0", "--queueHost", "0.0.0.0", "--tableHost", "0.0.0.0"]
 
           port {
             container_port = 10000
@@ -108,6 +109,7 @@ resource "kubernetes_stateful_set" "azurite-report-storage" {
         container {
           name  = "azurite-report-storage"
           image = local.azurite_image
+          args  = ["azurite", "--skipApiVersionCheck", "--blobHost", "0.0.0.0", "--queueHost", "0.0.0.0", "--tableHost", "0.0.0.0"]
 
           port {
             container_port = 10000

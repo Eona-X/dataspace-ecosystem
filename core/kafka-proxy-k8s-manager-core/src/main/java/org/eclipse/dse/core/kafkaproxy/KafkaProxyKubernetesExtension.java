@@ -28,6 +28,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static org.eclipse.dse.core.kafkaproxy.config.KafkaProxyConfig.LARGEST_AVAILABLE_PORT;
+
 /**
  * Extension that provides Kafka Proxy Kubernetes management capabilities
  */
@@ -81,6 +83,28 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         int baseProxyPort = context.getConfig().getInteger(KafkaProxyConfig.BASE_PROXY_PORT, 
                 Integer.parseInt(KafkaProxyConfig.DEFAULT_BASE_PROXY_PORT));
         
+        // Maximum broker ports configuration
+        int maxBrokerPorts = context.getConfig().getInteger(KafkaProxyConfig.MAX_BROKER_PORTS,
+                KafkaProxyConfig.MAX_ALLOWED_BROKER_PORTS);
+        if (maxBrokerPorts <= 0) {
+            monitor.warning("Invalid configuration for max broker ports: " + maxBrokerPorts + ". Using default value: " + KafkaProxyConfig.MAX_ALLOWED_BROKER_PORTS);
+            maxBrokerPorts = KafkaProxyConfig.MAX_ALLOWED_BROKER_PORTS;
+        } else {
+            // Ensure maxBrokerPorts does not exceed the default limit to prevent excessive port usage
+            maxBrokerPorts = Math.min(maxBrokerPorts, KafkaProxyConfig.MAX_ALLOWED_BROKER_PORTS);
+        }
+        // ---- Additional validation to ensure port range stays inside 0–65535 ----
+        int highestPort = baseProxyPort + maxBrokerPorts;
+        if (highestPort > LARGEST_AVAILABLE_PORT) {
+            throw new IllegalArgumentException(
+                    "Configured port range exceeds the maximum allowed TCP port. " +
+                            "Base port: " + baseProxyPort +
+                            ", maxBrokerPorts: " + maxBrokerPorts +
+                            ", highestPort: " + highestPort +
+                            ". Maximum allowed port is 65535."
+            );
+        }
+
         // Pod labels configuration (comma-separated key=value pairs, e.g., "env=prod,team=platform")
         String podLabelsConfig = context.getConfig().getString(KafkaProxyConfig.POD_LABELS, "");
         java.util.Map<String, String> additionalPodLabels = parsePodLabels(podLabelsConfig);
@@ -115,6 +139,7 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
             monitor.info("  Service ClusterIP: " + serviceClusterIp);
         }
         monitor.info("  Base Proxy Port: " + baseProxyPort);
+        monitor.info("  Max Broker Ports: " + maxBrokerPorts);
         if (!additionalPodLabels.isEmpty()) {
             monitor.info("  Additional Pod Labels: " + additionalPodLabels);
         }
@@ -124,7 +149,7 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         var vaultService = new VaultService(vaultAddr, vaultToken, vaultFolder);
         var deployerService = new KubernetesDeployerService(kubernetesClient, proxyNamespace, proxyImage, 
                 vaultService, participantId, serviceClusterIp, baseProxyPort, authEnabled, authMechanism, authTenantId, authClientId, authStaticUsers, authImage,
-                tlsListenerEnabled, tlsListenerCertSecret, tlsListenerKeySecret, tlsListenerCaSecret, additionalPodLabels);
+                tlsListenerEnabled, tlsListenerCertSecret, tlsListenerKeySecret, tlsListenerCaSecret, additionalPodLabels, maxBrokerPorts);
         var checkerService = new KubernetesCheckerService(kubernetesClient, proxyNamespace, participantId);
         
         var automaticQueueService = new AutomaticDiscoveryQueueService(sharedDir, vaultService, checkerService);
@@ -133,12 +158,12 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         automaticQueueService.initializeEdrTracking();
         
         orchestrator = new KafkaProxyOrchestrator(
-            vaultService, 
-            deployerService, 
-            checkerService, 
-            automaticQueueService,
-            monitor,
-            true // always enabled
+                vaultService,
+                deployerService,
+                checkerService,
+                automaticQueueService,
+                monitor,
+                true // always enabled
         );
         
         // Start scheduled processing

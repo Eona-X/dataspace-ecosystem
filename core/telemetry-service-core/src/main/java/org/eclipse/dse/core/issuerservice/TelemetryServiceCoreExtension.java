@@ -1,29 +1,25 @@
 package org.eclipse.dse.core.issuerservice;
 
+import org.eclipse.dse.spi.telemetry.RequestTelemetryPolicyContext;
+import org.eclipse.dse.spi.telemetry.TelemetryPolicy;
+import org.eclipse.dse.spi.telemetry.TelemetryPolicyContext;
 import org.eclipse.dse.spi.telemetry.TelemetryService;
 import org.eclipse.dse.spi.telemetry.TelemetryServiceCredentialFactory;
-import org.eclipse.edc.iam.did.spi.resolution.DidPublicKeyResolver;
-import org.eclipse.edc.issuerservice.spi.holder.store.HolderStore;
+import org.eclipse.dse.spi.telemetry.TelemetryServiceTokenValidator;
+import org.eclipse.edc.participant.spi.ParticipantAgentService;
+import org.eclipse.edc.policy.engine.spi.PolicyEngine;
+import org.eclipse.edc.protocol.spi.DataspaceProfileContextRegistry;
 import org.eclipse.edc.runtime.metamodel.annotation.Inject;
 import org.eclipse.edc.runtime.metamodel.annotation.Provider;
+import org.eclipse.edc.spi.iam.IdentityService;
 import org.eclipse.edc.spi.monitor.Monitor;
 import org.eclipse.edc.spi.system.ServiceExtension;
-import org.eclipse.edc.token.spi.TokenValidationService;
-import org.eclipse.edc.transaction.spi.TransactionContext;
+import org.eclipse.edc.spi.system.ServiceExtensionContext;
 
-import java.time.Clock;
-
+import static org.eclipse.dse.spi.telemetry.RequestTelemetryPolicyContext.TELEMETRY_REQUEST_SCOPE;
+import static org.eclipse.dse.spi.telemetry.TelemetryPolicyContext.TELEMETRY_SCOPE;
 
 public class TelemetryServiceCoreExtension implements ServiceExtension {
-
-    @Inject
-    private Clock clock;
-
-    @Inject
-    private TokenValidationService tokenValidationService;
-
-    @Inject
-    private DidPublicKeyResolver didPublicKeyResolver;
 
     @Inject
     private Monitor monitor;
@@ -31,11 +27,23 @@ public class TelemetryServiceCoreExtension implements ServiceExtension {
     @Inject
     private TelemetryServiceCredentialFactory credentialFactory;
 
-    @Inject
-    private HolderStore holderStore;
+    @Inject(required = false)
+    private TelemetryServiceTokenValidator telemetryServiceTokenValidator;
 
     @Inject
-    private TransactionContext transactionContext;
+    private PolicyEngine policyEngine;
+
+    @Inject
+    private DataspaceProfileContextRegistry dataspaceProfileContextRegistry;
+
+    @Inject
+    private IdentityService identityService;
+
+    @Inject
+    private ParticipantAgentService participantAgentService;
+
+    @Inject
+    private TelemetryPolicy telemetryPolicy;
 
 
     @Override
@@ -43,10 +51,26 @@ public class TelemetryServiceCoreExtension implements ServiceExtension {
         return "Telemetry Service Core";
     }
 
+    @Override
+    public void initialize(ServiceExtensionContext context) {
+        policyEngine.registerScope(TELEMETRY_REQUEST_SCOPE, RequestTelemetryPolicyContext.class);
+        policyEngine.registerScope(TELEMETRY_SCOPE, TelemetryPolicyContext.class);
+    }
+
     @Provider
     public TelemetryService telemetryService() {
-        return new TelemetryServiceImpl(tokenValidationService, didPublicKeyResolver, holderStore, transactionContext, credentialFactory);
+        return new TelemetryServiceImpl(telemetryServiceTokenValidator(), policyEngine, telemetryPolicy, credentialFactory);
     }
+
+
+    @Provider
+    public TelemetryServiceTokenValidator telemetryServiceTokenValidator() {
+        if (telemetryServiceTokenValidator == null) {
+            telemetryServiceTokenValidator = new TelemetryServiceTokenValidatorImpl(identityService, policyEngine, monitor, participantAgentService, dataspaceProfileContextRegistry);
+        }
+        return telemetryServiceTokenValidator;
+    }
+
 
 }
 

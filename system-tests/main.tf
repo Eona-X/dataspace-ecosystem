@@ -67,6 +67,7 @@ module "participant" {
 
   for_each                               = { for p in local.participants : p => p }
   participant_name                       = each.key
+  participant_with_prefix                = "/${each.key}"
   db_server_fqdn                         = module.postgres.postgres_server_fqdn
   postgres_admin_credentials_secret_name = module.postgres.postgres_admin_credentials_secret_name
   environment                            = var.environment
@@ -88,6 +89,9 @@ module "participant" {
 
   # Vault Configuration
   vault_folder = var.vault_folder
+
+  # Charts Path (relative to system-tests)
+  charts_path = "../charts"
 
   depends_on = [
     module.consumer_tls_certificates,

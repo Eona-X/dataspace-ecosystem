@@ -15,6 +15,7 @@ locals {
   control_plane_image = (
     var.environment == "local" ? "localhost/control-plane-postgresql-hashicorpvault" :
     var.environment == "devbox" ? "${var.devbox-registry}/control-plane-postgresql-hashicorpvault" :
+    var.environment == "selfhosted" ? var.control_plane_image :
     "control-plane-postgresql-hashicorpvault"
   )
 }
@@ -24,7 +25,7 @@ resource "helm_release" "controlplane" {
   cleanup_on_fail   = true
   dependency_update = true
   recreate_pods     = true
-  repository        = "../charts"
+  repository        = var.charts_path
   chart             = "control-plane"
   # version           = "latest"
 
@@ -39,7 +40,7 @@ resource "helm_release" "controlplane" {
         "initContainers" : [],
         "image" : {
           "repository" : local.control_plane_image
-          "pullPolicy" : var.environment == "local" ? "Never" : "IfNotPresent"
+          "pullPolicy" : local.image_pull_policy
           "tag" : "latest"
         },
         "sts" : {
@@ -87,17 +88,17 @@ edc.policy.monitor.state-machine.iteration-wait-millis=${var.policy_monitor_stat
           "endpoints" : [
             {
               "port" : 8181,
-              "path" : "/${var.participant_name}/cp/(management)(.*)",
+              "path" : "${var.participant_with_prefix}/cp/(management)(.*)",
               "pathType" : "ImplementationSpecific"
             },
             {
               "port" : 8282,
-              "path" : "/${var.participant_name}/cp/(dsp)(.*)",
+              "path" : "${var.participant_with_prefix}/cp/(dsp)(.*)",
               "pathType" : "ImplementationSpecific"
             },
             {
               "port" : 8484,
-              "path" : "/${var.participant_name}/cp/(onboarding)(.*)",
+              "path" : "${var.participant_with_prefix}/cp/(onboarding)(.*)",
               "pathType" : "ImplementationSpecific"
             }
           ]
@@ -123,7 +124,7 @@ edc.policy.monitor.state-machine.iteration-wait-millis=${var.policy_monitor_stat
             "token" : {
               "secret" : {
                 "name" : module.vault.vault_secret_name,
-                "tokenKey" : "rootToken"
+                "tokenKey" : var.selfhosted_vault_token_secret_key != "" ? var.selfhosted_vault_token_secret_key : "rootToken"
               }
             }
           }

@@ -1,69 +1,44 @@
 package org.eclipse.dse.core.issuerservice;
 
+import org.eclipse.dse.spi.telemetry.RequestTelemetryPolicyContext;
+import org.eclipse.dse.spi.telemetry.TelemetryPolicy;
+import org.eclipse.dse.spi.telemetry.TelemetryPolicyContext;
 import org.eclipse.dse.spi.telemetry.TelemetryService;
 import org.eclipse.dse.spi.telemetry.TelemetryServiceCredentialFactory;
-import org.eclipse.edc.iam.did.spi.resolution.DidPublicKeyResolver;
-import org.eclipse.edc.issuerservice.spi.holder.model.Holder;
-import org.eclipse.edc.issuerservice.spi.holder.store.HolderStore;
+import org.eclipse.dse.spi.telemetry.TelemetryServiceTokenValidator;
+import org.eclipse.edc.policy.engine.spi.PolicyEngine;
 import org.eclipse.edc.spi.iam.TokenRepresentation;
-import org.eclipse.edc.spi.query.Criterion;
-import org.eclipse.edc.spi.query.QuerySpec;
 import org.eclipse.edc.spi.result.ServiceResult;
-import org.eclipse.edc.token.spi.TokenValidationService;
-import org.eclipse.edc.transaction.spi.TransactionContext;
-
-import static org.eclipse.edc.jwt.spi.JwtRegisteredClaimNames.ISSUER;
 
 public class TelemetryServiceImpl implements TelemetryService {
 
-    private final TokenValidationService tokenValidationService;
-    private final DidPublicKeyResolver publicKeyResolver;
-    private final HolderStore holderStore;
-    private final TransactionContext transactionContext;
+    private final TelemetryServiceTokenValidator telemetryServiceTokenValidator;
+    private final TelemetryPolicy telemetryPolicy;
+    private final PolicyEngine policyEngine;
     private final TelemetryServiceCredentialFactory credentialFactory;
 
-    public TelemetryServiceImpl(TokenValidationService tokenValidationService,
-                                DidPublicKeyResolver publicKeyResolver,
-                                HolderStore holderStore,
-                                TransactionContext transactionContext,
+    public TelemetryServiceImpl(TelemetryServiceTokenValidator tokenValidator,
+                                PolicyEngine policyEngine,
+                                TelemetryPolicy telemetryPolicy,
                                 TelemetryServiceCredentialFactory sasTokenFactory) {
-        this.tokenValidationService = tokenValidationService;
-        this.publicKeyResolver = publicKeyResolver;
-        this.holderStore = holderStore;
-        this.transactionContext = transactionContext;
+        this.telemetryServiceTokenValidator = tokenValidator;
+        this.telemetryPolicy = telemetryPolicy;
+        this.policyEngine = policyEngine;
         this.credentialFactory = sasTokenFactory;
     }
 
     @Override
     public ServiceResult<TokenRepresentation> createSasToken(TokenRepresentation tokenRepresentation) {
-        var validationResult = tokenValidationService.validate(tokenRepresentation, publicKeyResolver);
-        if (validationResult.failed()) {
-            return ServiceResult.from(validationResult.mapEmpty());
+        var participantAgentResult = telemetryServiceTokenValidator.verify(tokenRepresentation, RequestTelemetryPolicyContext::new, telemetryPolicy.get());
+        if (participantAgentResult.failed()) {
+            return participantAgentResult.mapFailure();
         }
-
-        var issuer = validationResult.getContent().getStringClaim(ISSUER);
-        if (issuer == null) {
-            return ServiceResult.badRequest("Missing '%s' claim in token".formatted(ISSUER));
+        var participantAgent = participantAgentResult.getContent();
+        var accessPolicyResult = policyEngine.evaluate(telemetryPolicy.get(), new TelemetryPolicyContext(participantAgent));
+        if (accessPolicyResult.failed()) {
+            return ServiceResult.unauthorized(accessPolicyResult.getFailureDetail());
         }
-
-        return fetchHolder(issuer)
-                .map(participant -> ServiceResult.from(credentialFactory.get()))
-                .orElse(failure -> ServiceResult.unauthorized(failure.getFailureDetail()));
-    }
-
-    private ServiceResult<Holder> fetchHolder(String did) {
-        var query = QuerySpec.Builder.newInstance()
-                .filter(Criterion.Builder.newInstance()
-                        .operandLeft("did")
-                        .operator("=")
-                        .operandRight(did)
-                        .build())
-                .build();
-
-        return transactionContext.execute(() -> ServiceResult.from(holderStore.query(query)))
-                .compose(participants -> participants.stream().findFirst()
-                        .map(ServiceResult::success)
-                        .orElse(ServiceResult.notFound("No holder with did: " + did)));
+        return ServiceResult.from(credentialFactory.get());
     }
 
 }

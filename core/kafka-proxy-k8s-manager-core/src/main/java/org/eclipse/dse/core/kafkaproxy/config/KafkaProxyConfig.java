@@ -29,6 +29,7 @@ public class KafkaProxyConfig {
     public static final String PARTICIPANT_ID = "kafka.proxy.participant.id";
     public static final String SERVICE_CLUSTER_IP = "kafka.proxy.service.clusterIP";
     public static final String BASE_PROXY_PORT = "kafka.proxy.base.port";
+    public static final String MAX_BROKER_PORTS = "kafka.proxy.max.broker.ports";
     
     // Discovery configuration (always enabled)
     public static final String DISCOVERY_INTERVAL = "kafka.proxy.discovery.interval";
@@ -63,6 +64,8 @@ public class KafkaProxyConfig {
     public static final String DEFAULT_AUTH_IMAGE = "kafka-proxy-entra-auth:latest";
     public static final String DEFAULT_AUTH_MECHANISM = "PLAIN";  // PLAIN (JWT-over-PLAIN) or OAUTHBEARER (proper OAuth2)
     public static final String DEFAULT_BASE_PROXY_PORT = "30001";
+    public static final int MAX_ALLOWED_BROKER_PORTS = 20;
+    public static final int LARGEST_AVAILABLE_PORT = 65535;
     
     // Discovery defaults (always enabled)
     public static final String DEFAULT_DISCOVERY_INTERVAL = "10";  // in seconds

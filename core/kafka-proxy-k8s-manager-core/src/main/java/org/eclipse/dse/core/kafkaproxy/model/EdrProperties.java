@@ -124,8 +124,8 @@ public class EdrProperties {
      * Returns true if both client certificate and key are provided for mutual TLS
      */
     public boolean hasMutualTls() {
-        return tlsClientCert != null && !tlsClientCert.isEmpty() && 
-               tlsClientKey != null && !tlsClientKey.isEmpty();
+        return tlsClientCert != null && !tlsClientCert.isEmpty() &&
+                tlsClientKey != null && !tlsClientKey.isEmpty();
     }
     
     /**
@@ -133,8 +133,8 @@ public class EdrProperties {
      */
     public boolean hasOauth2Credentials() {
         return oauth2ClientId != null && !oauth2ClientId.isEmpty() &&
-               oauth2ClientSecret != null && !oauth2ClientSecret.isEmpty() &&
-               oauth2TenantId != null && !oauth2TenantId.isEmpty();
+                oauth2ClientSecret != null && !oauth2ClientSecret.isEmpty() &&
+                oauth2TenantId != null && !oauth2TenantId.isEmpty();
     }
     
     @Override
@@ -167,15 +167,15 @@ public class EdrProperties {
     @Override
     public String toString() {
         return "EdrProperties{" +
-               "bootstrapServers='" + bootstrapServers + '\'' +
-               ", username='" + username + '\'' +
-               ", securityProtocol='" + securityProtocol + '\'' +
-               ", saslMechanism='" + saslMechanism + '\'' +
-               ", tlsEnabled=" + isTlsEnabled() +
-               ", hasMutualTls=" + hasMutualTls() +
-               ", tlsCaSecret='" + tlsCaSecret + '\'' +
-               ", hasOauth2Credentials=" + hasOauth2Credentials() +
-               ", oauth2TenantId='" + oauth2TenantId + '\'' +
-               '}';
+                "bootstrapServers='" + bootstrapServers + '\'' +
+                ", username='" + username + '\'' +
+                ", securityProtocol='" + securityProtocol + '\'' +
+                ", saslMechanism='" + saslMechanism + '\'' +
+                ", tlsEnabled=" + isTlsEnabled() +
+                ", hasMutualTls=" + hasMutualTls() +
+                ", tlsCaSecret='" + tlsCaSecret + '\'' +
+                ", hasOauth2Credentials=" + hasOauth2Credentials() +
+                ", oauth2TenantId='" + oauth2TenantId + '\'' +
+                '}';
     }
 }

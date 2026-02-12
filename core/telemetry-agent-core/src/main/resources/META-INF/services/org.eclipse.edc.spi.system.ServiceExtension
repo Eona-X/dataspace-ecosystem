@@ -1,1 +1,2 @@
 org.eclipse.dse.core.telemetry.TelemetryAgentCoreExtension
+org.eclipse.dse.core.telemetry.TelemetryAgentDefaultExtension

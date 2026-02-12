@@ -6,7 +6,7 @@ locals {
       var.environment == "devbox" ? "${var.devbox-registry}/federated-catalog-filter-postgresql-hashicorpvault" :
       "federated-catalog-filter-postgresql-hashicorpvault"
   )
-  filter_url = "http://${local.catalog_filter_release_name}:8080/api/catalogfilter/filter"
+  filter_url = "http://${local.catalog_filter_release_name}:8383/api/catalogfilter/filter"
 }
 resource "helm_release" "federated-catalog-filter" {
   name              = local.catalog_filter_release_name
@@ -71,7 +71,7 @@ edc.vault.hashicorp.token.scheduled-renew-enabled=false
           },
           "endpoints" : [
             {
-              "port" : 8080,
+              "port" : 8383,
               "path" : "/${var.authority_name}/(catalogfilter)(.*)",
               "pathType" : "ImplementationSpecific"
             }

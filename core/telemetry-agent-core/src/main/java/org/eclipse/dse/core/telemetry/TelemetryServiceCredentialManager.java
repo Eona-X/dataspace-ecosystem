@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.eclipse.edc.statemachine.AbstractStateEntityManager.DEFAULT_ITERATION_WAIT;
+import static org.eclipse.edc.statemachine.StateMachineConfiguration.DEFAULT_ITERATION_WAIT;
 
 public class TelemetryServiceCredentialManager {
 

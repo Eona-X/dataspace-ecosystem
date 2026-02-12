@@ -14,11 +14,12 @@ locals {
 }
 
 resource "helm_release" "kafkaproxy" {
+  count             = var.environment == "selfhosted" ? 0 : 1
   name              = local.kafkaproxy_release_name
   cleanup_on_fail   = true
   dependency_update = true
   recreate_pods     = true
-  repository        = "../charts"
+  repository        = var.charts_path
   chart             = "kafka-proxy-k8s-manager"
   # version           = "latest"
 
@@ -35,10 +36,10 @@ resource "helm_release" "kafkaproxy" {
         "manager" : {
           "image" : {
             "repository" : local.kafka_proxy_image
-            "pullPolicy" : var.environment == "local" ? "Never" : "IfNotPresent"
+            "pullPolicy" : local.image_pull_policy
             "tag" : "latest"
           }
-
+          "initContainers" : []
           # Vault configuration
           "vaultAddr" : module.vault.vault_url
           "vaultTokenSecret" : {
@@ -96,7 +97,7 @@ resource "helm_release" "kafkaproxy" {
             "host" : ""
             "paths" : [
               {
-                "path" : "/${var.participant_name}/kafkaproxy/(.*)",
+                "path" : "${var.participant_with_prefix}/kafkaproxy/(.*)",
                 "pathType" : "ImplementationSpecific"
               }
             ]
@@ -153,6 +154,7 @@ resource "helm_release" "kafkaproxy" {
 
 # Additional ingress for management endpoint
 resource "kubernetes_ingress_v1" "kafkaproxy-management-ingress" {
+  count = var.environment == "selfhosted" ? 0 : 1
   metadata {
     name = "${var.participant_name}-kafkaproxy-management-ingress"
     annotations = {
@@ -167,7 +169,7 @@ resource "kubernetes_ingress_v1" "kafkaproxy-management-ingress" {
     rule {
       http {
         path {
-          path      = "/${var.participant_name}/kafkaproxy/management/(.*)"
+          path      = "${var.participant_with_prefix}/kafkaproxy/management/(.*)"
           path_type = "ImplementationSpecific"
           backend {
             service {
@@ -182,5 +184,5 @@ resource "kubernetes_ingress_v1" "kafkaproxy-management-ingress" {
     }
   }
 
-  depends_on = [helm_release.kafkaproxy]
+  depends_on = [helm_release.kafkaproxy[0]]
 }

@@ -1,0 +1,71 @@
+openapi: 3.0.1
+info:
+  description: This API is used to generate billing reports
+  title: Telemetry CSV Manager API
+  version: "1"
+paths:
+  /billing-reports:
+    get:
+      description: Retrieves Reports
+      operationId: getReport
+      parameters:
+        - description: Target month
+          in: query
+          name: month
+          schema:
+            type: integer
+            format: int32
+        - description: Target year
+          in: query
+          name: year
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          content:
+            text/csv:
+              schema:
+                type: string
+          description: The telemetry event was processed successfully
+        "400":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Invalid date range provided
+        "401":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Invalid JWT token
+        "403":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: "Missing/invalid participant in roles, unexpected number of\
+            \ participant roles or participant does not exist"
+        "404":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Report not found
+        "500":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: Internal server error
+      security:
+        - bearerAuth: []
+      tags:
+        - Telemetry CSV Manager API
+components:
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http

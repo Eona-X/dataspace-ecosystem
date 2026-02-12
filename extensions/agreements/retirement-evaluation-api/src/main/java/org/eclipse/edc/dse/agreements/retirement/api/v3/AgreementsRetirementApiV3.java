@@ -22,12 +22,16 @@ package org.eclipse.edc.dse.agreements.retirement.api.v3;
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.json.JsonArray;
 import jakarta.json.JsonObject;
@@ -35,8 +39,22 @@ import org.eclipse.edc.web.spi.ApiErrorDetail;
 
 import static org.eclipse.edc.jsonld.spi.JsonLdKeywords.ID;
 
-@OpenAPIDefinition(info = @Info(description = "With this API clients can retire an active Contract Agreement. Clients can also list all retired agreements.", title = "Agreements Retirement API"))
+@OpenAPIDefinition(info = @Info(description = "With this API clients can retire an active Contract Agreement. " +
+        "Clients can also list all retired agreements.", title = "Agreements Retirement API"),
+        security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")})
 @Tag(name = "Agreements Retirement")
+@SecurityScheme(
+        name = "bearerAuth",
+        type = SecuritySchemeType.HTTP,
+        scheme = "bearer",
+        bearerFormat = "JWT"
+)
+@SecurityScheme(
+        name = "apiKeyAuth",
+        type = SecuritySchemeType.APIKEY,
+        in = SecuritySchemeIn.HEADER,
+        paramName = "x-api-key"
+)
 public interface AgreementsRetirementApiV3 {
 
 

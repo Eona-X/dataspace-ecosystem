@@ -162,6 +162,27 @@ spec:
               value: {{ .Values.telemetryservice.credentialfactory.azure.eventhub.connectionstring.alias | required ".Values.telemetryservice.credentialfactory.azure.eventhub.connectionstring.alias is required" | quote }}
           {{- end }}
 
+            ################
+            #    DID       #
+            ################
+            - name: "EDC_IAM_ISSUER_ID"
+              value: {{.Values.telemetryservice.did.web.url | required ".Values.telemetryservice.did.web.url" | quote}}
+            - name: "EDC_IDENTITY_DID_URL"
+              value: {{.Values.telemetryservice.did.web.url | required ".Values.telemetryservice.did.web.url" | quote}}
+            - name: "EDC_IAM_DID_WEB_USE_HTTPS"
+              value: {{.Values.telemetryservice.did.web.useHttps | required ".Values.telemetryservice.did.web.useHttps is required" | quote}}
+
+            #####################
+            # STS REMOTE CONFIG #
+            #####################
+            - name: "EDC_IAM_STS_OAUTH_TOKEN_URL"
+              value: {{.Values.telemetryservice.sts.tokenUrl | required ".Values.telemetryservice.sts.tokenUrl is required" | quote}}
+            - name: "EDC_IAM_STS_OAUTH_CLIENT_ID"
+              value: {{.Values.telemetryservice.sts.clientId | required ".Values.telemetryservice.sts.clientId is required" | quote}}
+            - name: "EDC_IAM_STS_OAUTH_CLIENT_SECRET_ALIAS"
+              value: {{.Values.telemetryservice.sts.clientSecretAlias | required ".Values.telemetryservice.sts.clientSecretAlias is required" | quote}}
+
+
             #######
             # API #
             #######

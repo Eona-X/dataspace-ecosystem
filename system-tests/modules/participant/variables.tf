@@ -1,5 +1,11 @@
 variable "participant_name" {}
 
+variable "participant_with_prefix" {
+  description = "(Optional) Prefix for participant, defaults to empty string"
+  type        = string
+  default     = ""
+}
+
 variable "db_server_fqdn" {
   default = "postgres"
 }
@@ -108,6 +114,63 @@ variable "tls_listener_ca_secret" {
 # Vault Configuration
 variable "vault_folder" {
   description = "Vault folder for secrets organization. Empty = secret/, 'consumer' = secret/consumer/"
+  type        = string
+  default     = ""
+}
+
+# Charts Path Configuration
+variable "charts_path" {
+  description = "Path to the charts directory. Use '../../../charts' when running from participant module, '../charts' when running from system-tests"
+  type        = string
+  default     = "../../../charts"
+}
+
+# Self-hosted-specific Configuration
+
+variable "selfhosted_did_url" {
+  description = "Custom DID URL for self-hosted environments."
+  type        = string
+  default     = ""
+}
+
+variable "selfhosted_sts_url" {
+  description = "Custom STS URL for self-hosted environments."
+  type        = string
+  default     = ""
+}
+
+variable "selfhosted_vault_token_secret_key" {
+  description = "Custom vault token secret key for self-hosted environment."
+  type        = string
+  default     = ""
+}
+
+variable "selfhosted_authority_did" {
+  description = "Custom authority DID for self-hosted environments."
+  type        = string
+  default     = ""
+}
+
+variable "control_plane_image" {
+  description = "Control plane image name for self-hosted environments"
+  type        = string
+  default     = ""
+}
+
+variable "data_plane_image" {
+  description = "Data plane image name for self-hosted environments"
+  type        = string
+  default     = ""
+}
+
+variable "identity_hub_image" {
+  description = "Identity hub image name for self-hosted environments"
+  type        = string
+  default     = ""
+}
+
+variable "telemetry_agent_image" {
+  description = "Telemetry agent image name for self-hosted environments"
   type        = string
   default     = ""
 }

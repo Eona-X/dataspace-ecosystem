@@ -35,8 +35,8 @@ import static org.eclipse.edc.dse.telemetry.TestUtils.PARTICIPANT_NAME_2;
 import static org.eclipse.edc.dse.telemetry.TestUtils.TEST_PERSISTENCE_UNIT;
 import static org.eclipse.edc.dse.telemetry.TestUtils.USER_EMAIL;
 import static org.eclipse.edc.dse.telemetry.TestUtils.USER_EMAIL_2;
-import static org.eclipse.edc.dse.telemetry.services.ReportUtil.REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO;
-import static org.eclipse.edc.dse.telemetry.services.ReportUtil.REPORT_HEADER_WITH_COUNTERPARTY_INFO;
+import static org.eclipse.edc.dse.telemetry.services.ReportUtil.EXTENDED_REPORT_HEADER;
+import static org.eclipse.edc.dse.telemetry.services.ReportUtil.REPORT_HEADER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertLinesMatch;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -103,8 +103,8 @@ class ReportGenerationServiceTest {
     }
 
     @Test
-    @DisplayName("Should succeed when report generation is performed with counterparty info")
-    void shouldSucceed_WhenReportGenerationWithCounterpartyInfo() {
+    @DisplayName("Should succeed when extended report generation is performed")
+    void shouldSucceed_WhenExtendedReportGeneration() {
         em.getTransaction().begin();
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         ParticipantId participant2 = new ParticipantId(P2_DID, USER_EMAIL_2, PARTICIPANT_NAME_2);
@@ -141,14 +141,14 @@ class ReportGenerationServiceTest {
             assertEquals(1, reportRepository.findAll().size());
             Report report = reportRepository.findAll().get(0);
             validateReport(report, participant1, 1);
-            List<String> expectedCsv = List.of(REPORT_HEADER_WITH_COUNTERPARTY_INFO, "contract1,200,participantName,participantName2,0.16,0.16,1,1");
+            List<String> expectedCsv = List.of(EXTENDED_REPORT_HEADER, "contract1,200,participantName,participantName2,0.16,0.16,1,1");
             assertLinesMatch(expectedCsv, capturedContent.get().lines().toList());
         }
     }
 
     @Test
-    @DisplayName("Should succeed when report generation is performed without counterparty info")
-    void shouldSucceed_WhenReportGenerationWithoutCounterpartyInfo() {
+    @DisplayName("Should succeed when report generation is performed")
+    void shouldSucceed_WhenReportGeneration() {
         em.getTransaction().begin();
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         ParticipantId participant2 = new ParticipantId(P2_DID, USER_EMAIL_2, PARTICIPANT_NAME_2);
@@ -185,14 +185,14 @@ class ReportGenerationServiceTest {
             assertEquals(1, reportRepository.findAll().size());
             Report report = reportRepository.findAll().get(0);
             validateReport(report, participant1, 1);
-            List<String> expectedCsv = List.of(REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO, "contract1,200,0.16,1");
+            List<String> expectedCsv = List.of(REPORT_HEADER, "contract1,participantName2,200,0.16,1");
             assertLinesMatch(expectedCsv, capturedContent.get().lines().toList());
         }
     }
 
     @Test
-    @DisplayName("Should succeed when report generation with multiple contracts is performed with counterparty info")
-    void shouldSucceed_WhenReportGenerationWithMultipleContractsAndWithCounterpartyInfo() {
+    @DisplayName("Should succeed when extended report generation with multiple contracts is performed")
+    void shouldSucceed_WhenExtendedReportGenerationWithMultipleContracts() {
         em.getTransaction().begin();
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         ParticipantId participant2 = new ParticipantId(P2_DID, USER_EMAIL_2, PARTICIPANT_NAME_2);
@@ -235,7 +235,7 @@ class ReportGenerationServiceTest {
             assertEquals(1, reportRepository.findAll().size());
             Report report = reportRepository.findAll().get(0);
             validateReport(report, participant1, 4);
-            List<String> expectedCsv = List.of(REPORT_HEADER_WITH_COUNTERPARTY_INFO,
+            List<String> expectedCsv = List.of(EXTENDED_REPORT_HEADER,
                     "contract1,200,participantName,participantName2,0.19,0.19,2,2",
                     "contract2,200,participantName,participantName2,0.16,0.16,1,1",
                     "contract3,200,participantName,participantName2,0.49,0.49,1,1");
@@ -244,8 +244,8 @@ class ReportGenerationServiceTest {
     }
 
     @Test
-    @DisplayName("Should succeed when report generation with multiple contracts is performed without counterparty info")
-    void shouldSucceed_WhenReportGenerationWithMultipleContractsAndWithoutCounterpartyInfo() {
+    @DisplayName("Should succeed when report generation with multiple contracts is performed")
+    void shouldSucceed_WhenReportGenerationWithMultipleContracts() {
         em.getTransaction().begin();
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         ParticipantId participant2 = new ParticipantId(P2_DID, USER_EMAIL_2, PARTICIPANT_NAME_2);
@@ -288,17 +288,17 @@ class ReportGenerationServiceTest {
             assertEquals(1, reportRepository.findAll().size());
             Report report = reportRepository.findAll().get(0);
             validateReport(report, participant1, 4);
-            List<String> expectedCsv = List.of(REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO,
-                    "contract1,200,0.19,2",
-                    "contract2,200,0.16,1",
-                    "contract3,200,0.49,1");
+            List<String> expectedCsv = List.of(REPORT_HEADER,
+                    "contract1,participantName2,200,0.19,2",
+                    "contract2,participantName2,200,0.16,1",
+                    "contract3,participantName2,200,0.49,1");
             assertLinesMatch(expectedCsv, capturedContent.get().lines().toList());
         }
     }
 
     @Test
-    @DisplayName("Should succeed when report generation with multiple contracts, multiple response status codes is performed and with counterparty info")
-    void shouldSucceed_WhenReportGenerationWithMultipleContractsAndMultipleStatusCodesAndWithCounterpartyInfo() {
+    @DisplayName("Should succeed when report generation with multiple contracts, multiple response status codes is performed")
+    void shouldSucceed_WhenExtendedReportGenerationWithMultipleContractsAndMultipleStatusCodes() {
         em.getTransaction().begin();
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         ParticipantId participant2 = new ParticipantId(P2_DID, USER_EMAIL_2, PARTICIPANT_NAME_2);
@@ -346,7 +346,7 @@ class ReportGenerationServiceTest {
             assertEquals(1, reportRepository.findAll().size());
             Report report = reportRepository.findAll().get(0);
             validateReport(report, participant1, 8);
-            List<String> expectedCsv = List.of(REPORT_HEADER_WITH_COUNTERPARTY_INFO,
+            List<String> expectedCsv = List.of(EXTENDED_REPORT_HEADER,
                     "contract1,200,participantName,participantName2,0.04,0.04,1,1",
                     "contract2,200,participantName,participantName2,0.16,0.16,1,1",
                     "contract2,400,participantName,participantName2,0.16,0,1,0",
@@ -357,8 +357,8 @@ class ReportGenerationServiceTest {
     }
 
     @Test
-    @DisplayName("Should succeed when report generation with multiple contracts, multiple response status codes is performed and without counterparty info")
-    void shouldSucceed_WhenReportGenerationWithMultipleContractsAndMultipleStatusCodesAndWithoutCounterpartyInfo() {
+    @DisplayName("Should succeed when report generation with multiple contracts, multiple response status codes is performed")
+    void shouldSucceed_WhenReportGenerationWithMultipleContractsAndMultipleStatusCodes() {
         em.getTransaction().begin();
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         ParticipantId participant2 = new ParticipantId(P2_DID, USER_EMAIL_2, PARTICIPANT_NAME_2);
@@ -406,19 +406,19 @@ class ReportGenerationServiceTest {
             assertEquals(1, reportRepository.findAll().size());
             Report report = reportRepository.findAll().get(0);
             validateReport(report, participant1, 8);
-            List<String> expectedCsv = List.of(REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO,
-                    "contract1,200,0.04,1",
-                    "contract2,200,0.16,1",
-                    "contract2,400,0.16,1",
-                    "contract3,200,0.98,2",
-                    "contract3,500,1.46,3");
+            List<String> expectedCsv = List.of(REPORT_HEADER,
+                    "contract1,participantName2,200,0.04,1",
+                    "contract2,participantName2,200,0.16,1",
+                    "contract2,participantName2,400,0.16,1",
+                    "contract3,participantName2,200,0.98,2",
+                    "contract3,participantName2,500,1.46,3");
             assertLinesMatch(expectedCsv, capturedContent.get().lines().toList());
         }
     }
 
     @Test
-    @DisplayName("Should succeed when report generation is performed but there is a discrepancy in message size and with counterparty info")
-    void shouldSucceed_WhenReportGenerationButDiscrepancyInMsgSizeWithCounterpartyInfo() {
+    @DisplayName("Should succeed when report generation is performed but there is a discrepancy in message size")
+    void shouldSucceed_WhenExtendedReportGenerationButDiscrepancyInMsgSize() {
         em.getTransaction().begin();
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         ParticipantId participant2 = new ParticipantId(P2_DID, USER_EMAIL_2, PARTICIPANT_NAME_2);
@@ -453,15 +453,15 @@ class ReportGenerationServiceTest {
             assertEquals(1, reportRepository.findAll().size());
             Report report = reportRepository.findAll().get(0);
             validateReport(report, participant1, 1);
-            List<String> expectedCsv = List.of(REPORT_HEADER_WITH_COUNTERPARTY_INFO,
+            List<String> expectedCsv = List.of(EXTENDED_REPORT_HEADER,
                     "contract1,200,participantName,participantName2,0.16,0.16,1,1");
             assertLinesMatch(expectedCsv, capturedContent.get().lines().toList());
         }
     }
 
     @Test
-    @DisplayName("Should succeed when report generation is performed but there is a discrepancy in message size and without counterparty info")
-    void shouldSucceed_WhenReportGenerationButDiscrepancyInMsgSizeWithoutCounterpartyInfo() {
+    @DisplayName("Should succeed when report generation is performed but there is a discrepancy in message size")
+    void shouldSucceed_WhenReportGenerationButDiscrepancyInMsgSize() {
         em.getTransaction().begin();
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         ParticipantId participant2 = new ParticipantId(P2_DID, USER_EMAIL_2, PARTICIPANT_NAME_2);
@@ -496,15 +496,15 @@ class ReportGenerationServiceTest {
             assertEquals(1, reportRepository.findAll().size());
             Report report = reportRepository.findAll().get(0);
             validateReport(report, participant1, 1);
-            List<String> expectedCsv = List.of(REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO,
-                    "contract1,200,0.16,1");
+            List<String> expectedCsv = List.of(REPORT_HEADER,
+                    "contract1,participantName2,200,0.16,1");
             assertLinesMatch(expectedCsv, capturedContent.get().lines().toList());
         }
     }
 
     @Test
-    @DisplayName("Should succeed when report generation is performed but there is a discrepancy in event count with counterparty info")
-    void shouldSucceed_WhenReportGenerationButDiscrepancyInEventCountAndWithCounterpartyInfo() {
+    @DisplayName("Should succeed when extended report generation is performed but there is a discrepancy in event count with counterparty info")
+    void shouldSucceed_WhenExtendedReportGenerationButDiscrepancyInEventCount() {
         em.getTransaction().begin();
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         ParticipantId participant2 = new ParticipantId(P2_DID, USER_EMAIL_2, PARTICIPANT_NAME_2);
@@ -539,15 +539,15 @@ class ReportGenerationServiceTest {
             assertEquals(1, reportRepository.findAll().size());
             Report report = reportRepository.findAll().get(0);
             validateReport(report, participant1, 2);
-            List<String> expectedCsv = List.of(REPORT_HEADER_WITH_COUNTERPARTY_INFO,
+            List<String> expectedCsv = List.of(EXTENDED_REPORT_HEADER,
                     "contract1,200,participantName,participantName2,0.21,0.16,2,1");
             assertLinesMatch(expectedCsv, capturedContent.get().lines().toList());
         }
     }
 
     @Test
-    @DisplayName("Should succeed when report generation is performed but there is a discrepancy in event count without counterparty info")
-    void shouldSucceed_WhenReportGenerationButDiscrepancyInEventCountAndWithoutCounterpartyInfo() {
+    @DisplayName("Should succeed when report generation is performed but there is a discrepancy in event count")
+    void shouldSucceed_WhenReportGenerationButDiscrepancyInEventCount() {
         em.getTransaction().begin();
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         ParticipantId participant2 = new ParticipantId(P2_DID, USER_EMAIL_2, PARTICIPANT_NAME_2);
@@ -582,8 +582,8 @@ class ReportGenerationServiceTest {
             assertEquals(1, reportRepository.findAll().size());
             Report report = reportRepository.findAll().get(0);
             validateReport(report, participant1, 2);
-            List<String> expectedCsv = List.of(REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO,
-                    "contract1,200,0.21,2");
+            List<String> expectedCsv = List.of(REPORT_HEADER,
+                    "contract1,participantName2,200,0.21,2");
             assertLinesMatch(expectedCsv, capturedContent.get().lines().toList());
         }
     }

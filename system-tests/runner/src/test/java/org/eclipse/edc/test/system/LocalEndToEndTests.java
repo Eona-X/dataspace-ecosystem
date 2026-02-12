@@ -79,7 +79,6 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-
 @EndToEndTest
 public class LocalEndToEndTests extends AbstractEndToEndTests {
 
@@ -95,7 +94,7 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
     private static final String VAULT_TOKEN = "root";
     private static final String EVENT_HUB_NAMESPACE = "local-eventhub-eventhubs";
     private static final String EVENT_HUB_NAME = "eh1";
-    public static final String REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO = "contract_id,data_transfer_response_status," +
+    public static final String REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO = "contract_id,counterparty_name,data_transfer_response_status," +
             "total_transfer_size_in_kB,total_number_of_events";
 
     private static final LocalAuthority AUTHORITY = new LocalAuthority();
@@ -110,8 +109,8 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
 
     public static void initializeParticipant(AbstractEntity participant) {
         AUTHORITY.createParticipant(participant.name(), participant.did());
-        participant.requestCredential(AUTHORITY.did(), MEMBERSHIP_CREDENTIAL_TYPE);
-        participant.requestCredential(AUTHORITY.did(), DOMAIN_CREDENTIAL_TYPE);
+        participant.requestCredential(AUTHORITY.did(), MEMBERSHIP_CREDENTIAL_TYPE, "membership-credential-def-1");
+        participant.requestCredential(AUTHORITY.did(), DOMAIN_CREDENTIAL_TYPE, "domain-credential-def-1");
     }
 
     @BeforeAll
@@ -384,7 +383,7 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                     .noneMatch(dataset -> ASSET_ID_REST_API_TRAVEL_DOMAIN_RESTRICTED.equals(dataset.getString(ID)));
         }
     }
-    
+
     @Nested
     class TransferTest {
 
@@ -556,6 +555,42 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                 var state = CONSUMER.participantClient().getContractNegotiationState(negoId);
                 assertThat(state).isEqualTo(ContractNegotiationStates.TERMINATED.name());
             });
+        }
+
+        @Test
+        void contractNegotiation_delete_shouldRemoveNegotiation() {
+            // Initiate a contract negotiation that will be terminated (policy not matched)
+            var negoId = CONSUMER.participantClient().initContractNegotiation(PROVIDER.participantClient(), POLICY_RESTRICTED_API);
+            
+            // Wait for negotiation to reach TERMINATED state
+            await().atMost(TEST_TIMEOUT).untilAsserted(() -> {
+                var state = CONSUMER.participantClient().getContractNegotiationState(negoId);
+                assertThat(state).isEqualTo(ContractNegotiationStates.TERMINATED.name());
+            });
+
+            // Verify negotiation exists before deletion
+            CONSUMER.participantClient().baseManagementRequest()
+                    .when()
+                    .get("/v3/contractnegotiations/" + negoId)
+                    .then()
+                    .log().ifError()
+                    .statusCode(200);
+
+            // Delete the contract negotiation
+            CONSUMER.participantClient().baseManagementRequest()
+                    .when()
+                    .delete("/v3/contractnegotiations/" + negoId)
+                    .then()
+                    .log().ifError()
+                    .statusCode(204);
+
+            // Verify negotiation no longer exists
+            CONSUMER.participantClient().baseManagementRequest()
+                    .when()
+                    .get("/v3/contractnegotiations/" + negoId)
+                    .then()
+                    .log().ifError()
+                    .statusCode(404);
         }
 
         public static String getContractIdFromTransferProcess(AbstractParticipant consumer, String transferProcessId) {
@@ -784,7 +819,7 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                     .extract().response();
 
             String expectedCsvReportBuilder = REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO + "\n" +
-                    ctId + "," + 200 + "," + 0.02 + "," + 1;
+                    ctId + "," + PROVIDER.name() + "," + 200 + "," + 0.02 + "," + 1;
             assertEquals(expectedCsvReportBuilder, responseBody.getBody().asString().trim());
 
             // Validates that if we have multiple roles in the JWT it still returns the correct report
@@ -846,8 +881,10 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                     .statusCode(200).contentType(containsString("text/csv"))
                     .extract().response();
 
+            // If there are no events received from the counterparty side, it will not be possible to pinpoint the name
+            // of the counterparty so it will be marked as N/A
             String expectedCsvReportBuilder = REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO + "\n" +
-                    ctId + "," + 400 + "," + 0.02 + "," + 1;
+                    ctId + ",N/A," + 400 + "," + 0.02 + "," + 1;
             assertEquals(expectedCsvReportBuilder, responseBody.getBody().asString().trim());
         }
 

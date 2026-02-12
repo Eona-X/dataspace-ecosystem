@@ -15,11 +15,18 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.eclipse.edc.dse.telemetry.services.ReportUtil.getObjectPath;
 import static org.eclipse.edc.dse.telemetry.services.ReportUtil.getValue;
 
 public class ReportGenerationService {
+
+    private static final String COUNTERPARTY_NOT_AVAILABLE = "N/A";
+    private static final int EXPECTED_CONTRACT_PARTIES = 2;
+    private static final String DEFAULT_SIZE_VALUE = "0";
+    private static final long DEFAULT_EVENT_COUNT = 0L;
 
     private final ParticipantRepository participantRepository;
     private final ReportRepository reportRepository;
@@ -146,76 +153,141 @@ public class ReportGenerationService {
     }
 
     private List<String> collectCsvEntryInfo(ParticipantId participant, List<ContractStats> contractStats, int month, int year, boolean includeCounterpartyInfo) {
-        List<String> csvLines;
-        if (!includeCounterpartyInfo) {
-            this.monitor.debug("Building report for participant " + participant.getName() + " without counterparty info");
-            csvLines = buildCsvWithoutCounterpartyInfo(contractStats);
-        } else {
-            this.monitor.debug("Building report for participant " + participant.getName() + " with counterparty info");
-            csvLines = buildCsvWithCounterpartyInfo(participant, contractStats, month, year);
-        }
-        return csvLines;
+        monitor.debug(() -> String.format("Building report for participant %s %s counterparty info", participant.getName(), includeCounterpartyInfo ? "with" : "without"));
+
+        return includeCounterpartyInfo
+                ? buildExtendedReportCsv(participant, contractStats, month, year)
+                : buildReportCsv(participant, contractStats);
     }
 
-    private List<String> buildCsvWithCounterpartyInfo(ParticipantId participant, List<ContractStats> contractStats, int month, int year) {
-        List<String> csvLines = new ArrayList<>();
-        ContractStats counterPartyContractStats;
+    private List<String> buildExtendedReportCsv(ParticipantId participant, List<ContractStats> contractStats, int month, int year) {
+        Map<String, List<ParticipantId>> contractPartiesMap = fetchContractPartiesMap(contractStats);
+
+        List<String> csvLines = new ArrayList<>(contractStats.size());
+
         for (ContractStats contractStat : contractStats) {
             String contractId = contractStat.contractId();
-            List<ParticipantId> contractParties = telemetryEventRepository.findContractParties(contractId);
-            String counterpartyId;
-            String counterpartyName = "N/A";
-            if (contractParties.size() == 2) {
-                counterpartyId = participant.getId().equals(contractParties.get(0).getId()) ? contractParties.get(1).getId() : contractParties.get(0).getId();
-                counterpartyName = participant.getId().equals(contractParties.get(0).getId()) ? contractParties.get(1).getName() : contractParties.get(0).getName();
-                counterPartyContractStats = telemetryEventRepository.findStatsForContractIdAndStatusCodeGroupedByContractIdAndStatusCode(counterpartyId, month, year, contractId, contractStat.responseStatus());
-                if (counterPartyContractStats == null) {
-                    // Covers edge case in which no data is found on the counterparty side
-                    monitor.warning("No data found for counterparty " + counterpartyId + " contract " + contractId + " month " + month + " year " + year);
-                    counterPartyContractStats = new ContractStats(contractId, 0, null, null);
-                }
-            } else {
-                monitor.warning("Contract " + contractId + " does not have exactly 2 parties, found parties: " + contractParties.size());
-                counterPartyContractStats = new ContractStats(contractId, 0, null, null);
-            }
+            List<ParticipantId> contractParties = contractPartiesMap.getOrDefault(contractId, List.of());
 
-            csvLines.add(buildCsvEntryRowWithCounterpartyInfo(contractStat, participant.getName(), counterpartyName, counterPartyContractStats));
+            CounterpartyInfo counterpartyInfo = extractCounterpartyInfo(participant, contractParties, contractId);
+            ContractStats counterPartyContractStats = fetchCounterpartyStats(
+                    counterpartyInfo.id(),
+                    month,
+                    year,
+                    contractId,
+                    contractStat.responseStatus()
+            );
+
+            csvLines.add(buildExtendedCsvEntryRow(
+                    contractStat,
+                    participant.getName(),
+                    counterpartyInfo.name(),
+                    counterPartyContractStats
+            ));
         }
+
         return csvLines;
     }
 
-    private static List<String> buildCsvWithoutCounterpartyInfo(List<ContractStats> contractStats) {
-        List<String> csvLines = new ArrayList<>();
+    private List<String> buildReportCsv(ParticipantId participant, List<ContractStats> contractStats) {
+        Map<String, List<ParticipantId>> contractPartiesMap = fetchContractPartiesMap(contractStats);
+
+        List<String> csvLines = new ArrayList<>(contractStats.size());
+
         for (ContractStats contractStat : contractStats) {
-            csvLines.add(buildCsvEntryRowWithoutCounterpartyInfo(contractStat));
+            String contractId = contractStat.contractId();
+            List<ParticipantId> contractParties = contractPartiesMap.getOrDefault(contractId, List.of());
+
+            CounterpartyInfo counterpartyInfo = extractCounterpartyInfo(participant, contractParties, contractId);
+            csvLines.add(buildCsvEntryRow(contractStat, counterpartyInfo.name()));
         }
+
         return csvLines;
     }
 
-    private static String buildCsvEntryRowWithCounterpartyInfo(ContractStats contractStat, String participantName, String counterpartyName, ContractStats counterPartyContractStats) {
-        StringBuilder builder = new StringBuilder();
-        builder.append(getValue(contractStat.contractId())).append(",");
-        builder.append(getValue(contractStat.responseStatus())).append(",");
-        builder.append(getValue(participantName)).append(",");
-        builder.append(getValue(counterpartyName)).append(",");
-        builder.append(getMsgSizeValue(contractStat)).append(",");
-        builder.append(getMsgSizeValue(counterPartyContractStats)).append(",");
-        builder.append(contractStat.eventCount() == null ? 0 : contractStat.eventCount()).append(",");
-        builder.append(counterPartyContractStats.eventCount() == null ? 0 : counterPartyContractStats.eventCount());
-        return builder.toString();
+    private Map<String, List<ParticipantId>> fetchContractPartiesMap(List<ContractStats> contractStats) {
+        return contractStats.stream()
+                .map(ContractStats::contractId)
+                .distinct()
+                .collect(Collectors.toMap(
+                        contractId -> contractId,
+                        telemetryEventRepository::findContractParties
+                ));
     }
 
-    private static String buildCsvEntryRowWithoutCounterpartyInfo(ContractStats contractStat) {
-        StringBuilder builder = new StringBuilder();
-        builder.append(getValue(contractStat.contractId())).append(",");
-        builder.append(getValue(contractStat.responseStatus())).append(",");
-        builder.append(getMsgSizeValue(contractStat)).append(",");
-        builder.append(contractStat.eventCount() == null ? 0 : contractStat.eventCount());
-        return builder.toString();
+    private CounterpartyInfo extractCounterpartyInfo(ParticipantId participant, List<ParticipantId> contractParties, String contractId) {
+        if (contractParties.size() != EXPECTED_CONTRACT_PARTIES) {
+            monitor.warning(() -> String.format("Contract %s does not have exactly %d parties, found: %d", contractId, EXPECTED_CONTRACT_PARTIES, contractParties.size()));
+            return new CounterpartyInfo(null, COUNTERPARTY_NOT_AVAILABLE);
+        }
+
+        ParticipantId counterparty = findCounterparty(participant, contractParties);
+        return new CounterpartyInfo(counterparty.getId(), counterparty.getName());
+    }
+
+    private ParticipantId findCounterparty(ParticipantId participant, List<ParticipantId> contractParties) {
+        return participant.getId().equals(contractParties.get(0).getId())
+                ? contractParties.get(1)
+                : contractParties.get(0);
+    }
+
+    private ContractStats fetchCounterpartyStats(String counterpartyId, int month, int year, String contractId, Integer responseStatus) {
+        if (counterpartyId == null) {
+            return createEmptyStats(contractId);
+        }
+
+        ContractStats stats = telemetryEventRepository.findStatsForContractIdAndStatusCodeGroupedByContractIdAndStatusCode(
+                counterpartyId,
+                month,
+                year,
+                contractId,
+                responseStatus
+        );
+
+        if (stats == null) {
+            monitor.warning(() -> String.format("No data found for counterparty %s, contract %s, month %d, year %d", counterpartyId, contractId, month, year));
+            return createEmptyStats(contractId);
+        }
+
+        return stats;
+    }
+
+    private ContractStats createEmptyStats(String contractId) {
+        return new ContractStats(contractId, null, null, null);
+    }
+
+
+    private static String buildExtendedCsvEntryRow(ContractStats contractStat, String participantName, String counterpartyName, ContractStats counterPartyContractStats) {
+        return String.join(",",
+                getValue(contractStat.contractId()),
+                getValue(contractStat.responseStatus()),
+                getValue(participantName),
+                getValue(counterpartyName),
+                getMsgSizeValue(contractStat),
+                getMsgSizeValue(counterPartyContractStats),
+                getEventCountValue(contractStat),
+                getEventCountValue(counterPartyContractStats)
+        );
+    }
+
+    private static String buildCsvEntryRow(ContractStats contractStat, String counterpartyName) {
+        return String.join(",",
+                getValue(contractStat.contractId()),
+                getValue(counterpartyName),
+                getValue(contractStat.responseStatus()),
+                getMsgSizeValue(contractStat),
+                getEventCountValue(contractStat)
+        );
     }
 
     private static String getMsgSizeValue(ContractStats contractStat) {
-        return contractStat.msgSize() != null ? bytesToKilobytesRoundedString(contractStat.msgSize()) : "0";
+        return contractStat.msgSize() != null
+                ? bytesToKilobytesRoundedString(contractStat.msgSize())
+                : DEFAULT_SIZE_VALUE;
+    }
+
+    private static String getEventCountValue(ContractStats contractStat) {
+        return String.valueOf(contractStat.eventCount() != null ? contractStat.eventCount() : DEFAULT_EVENT_COUNT);
     }
 
     /**

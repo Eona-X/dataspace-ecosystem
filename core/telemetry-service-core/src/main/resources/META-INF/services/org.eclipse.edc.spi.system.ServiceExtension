@@ -1,1 +1,2 @@
 org.eclipse.dse.core.issuerservice.TelemetryServiceCoreExtension
+org.eclipse.dse.core.issuerservice.TelemetryServiceDefaultExtension
