@@ -10,10 +10,6 @@ import org.eclipse.edc.catalog.transform.JsonObjectToDataServiceTransformer;
 import org.eclipse.edc.catalog.transform.JsonObjectToDatasetTransformer;
 import org.eclipse.edc.catalog.transform.JsonObjectToDistributionTransformer;
 import org.eclipse.edc.connector.controlplane.catalog.spi.Catalog;
-import org.eclipse.edc.connector.controlplane.transform.odrl.to.JsonObjectToActionTransformer;
-import org.eclipse.edc.connector.controlplane.transform.odrl.to.JsonObjectToConstraintTransformer;
-import org.eclipse.edc.connector.controlplane.transform.odrl.to.JsonObjectToOperatorTransformer;
-import org.eclipse.edc.connector.controlplane.transform.odrl.to.JsonObjectToPermissionTransformer;
 import org.eclipse.edc.connector.controlplane.transform.odrl.to.JsonObjectToPolicyTransformer;
 import org.eclipse.edc.iam.verifiablecredentials.spi.model.CredentialSubject;
 import org.eclipse.edc.iam.verifiablecredentials.spi.model.Issuer;
@@ -78,7 +74,7 @@ public class FederatedCatalogFilterServiceTest {
     private final Monitor monitor = mock();
     private static final String PARTICIPANT_DID = "did:web:participant";
     private static ParticipantIdMapper participantIdMapper = mock(ParticipantIdMapper.class);
-    private static final String CATALOG_REPLY = "/catalogReply.txt";
+    private static final String CATALOG_REPLY = "/catalogReply.json";
     private static TypeTransformerRegistry transformerRegistry = new TypeTransformerRegistryImpl();
     private final JsonLd jsonLd = new TitaniumJsonLd(monitor);
     private static HttpClient httpClient = mock(HttpClient.class);
@@ -112,10 +108,9 @@ public class FederatedCatalogFilterServiceTest {
         transformerRegistry.register(new JsonObjectToDistributionTransformer());
         transformerRegistry.register(new JsonObjectToQuerySpecTransformer());
         transformerRegistry.register(new JsonObjectToCriterionTransformer());
-        transformerRegistry.register(new JsonObjectToPermissionTransformer());
-        transformerRegistry.register(new JsonObjectToActionTransformer());
-        transformerRegistry.register(new JsonObjectToConstraintTransformer());
-        transformerRegistry.register(new JsonObjectToOperatorTransformer());
+
+        VcCatalogInitializer.registerTransformers(transformerRegistry);
+
         transformerRegistry.register(new JsonValueToGenericTypeTransformer(typeManager, JSON_LD));
     }
 
@@ -135,6 +130,16 @@ public class FederatedCatalogFilterServiceTest {
         Collection<Catalog> result = service.filterCatalog(catalogs, service.createContext(tokens), PARTICIPANT_DID);
         monitor.warning(result.toString());
         assertFalse(result.isEmpty());
+        assertTrue(
+                result.stream()
+                        .anyMatch(c -> c.getDatasets().stream()
+                                .anyMatch(d -> d.getId().equals("prohibition-test")))
+        );
+        assertTrue(
+                result.stream()
+                        .anyMatch(c -> c.getDatasets().stream()
+                                .anyMatch(d -> d.getId().equals("obligation-test")))
+        );
         assertTrue(
                 result.stream()
                         .anyMatch(c -> c.getDatasets().stream()
@@ -178,7 +183,7 @@ public class FederatedCatalogFilterServiceTest {
 
     private static String loadCatalogFromFile(String resourcePath) throws IOException {
         String catalogReply;
-        try (var is = FederatedCatalogFilterServiceTest.class.getResourceAsStream("/catalogReply.txt")) {
+        try (var is = FederatedCatalogFilterServiceTest.class.getResourceAsStream(resourcePath)) {
             catalogReply = new String(is.readAllBytes(), StandardCharsets.UTF_8);
         }
         return catalogReply;
