@@ -401,7 +401,117 @@
                 "description": "user test files",
                 "id": "visible-list-asset",
                 "contenttype": "application/json"
-            }
+            },
+          {
+            "@id": "prohibition-test",
+            "@type": "dcat:Dataset",
+            "odrl:hasPolicy": {
+              "@id": "cHJvaGliaXRpb24tdGVzdA==:cHJvaGliaXRpb24tdGVzdA==:ZDM2OGE0ZTUtZmM0NS00ZWI0LTk2ZjEtMGFiYTBhM2FiYzcz",
+              "@type": "odrl:Offer",
+              "odrl:permission": [],
+              "odrl:prohibition": [
+                {
+                  "odrl:action":{
+                    "@id":"odrl:use"
+                  }
+                }
+              ],
+              "odrl:obligation": []
+            },
+            "dcat:distribution": [
+              {
+                "@type": "dcat:Distribution",
+                "dct:format": {
+                  "@id": "HttpData-PULL"
+                },
+                "dcat:accessService": {
+                  "@id": "35a5ae60-236f-4669-849c-a35bff05f1c7",
+                  "@type": "dcat:DataService"
+                }
+              },
+              {
+                "@type": "dcat:Distribution",
+                "dct:format": {
+                  "@id": "HttpData-PUSH"
+                },
+                "dcat:accessService": {
+                  "@id": "35a5ae60-236f-4669-849c-a35bff05f1c7",
+                  "@type": "dcat:DataService"
+                }
+              },
+              {
+                "@type": "dcat:Distribution",
+                "dct:format": {
+                  "@id": "Kafka-PUSH"
+                },
+                "dcat:accessService": {
+                  "@id": "35a5ae60-236f-4669-849c-a35bff05f1c7",
+                  "@type": "dcat:DataService"
+                }
+              }
+            ],
+            "version": "1.0",
+            "createdAt": "2026-02-20T12:00:00Z",
+            "name": "prohibition-test",
+            "description": "prohibition-test",
+            "id": "prohibition-test",
+            "contenttype": "application/json"
+          },
+          {
+            "@id": "obligation-test",
+            "@type": "dcat:Dataset",
+            "odrl:hasPolicy": {
+              "@id": "b2JsaWdhdGlvbi10ZXN0:b2JsaWdhdGlvbi10ZXN0:MDE2ZWM3MzEtZmZlMC00NGJiLWI0ZDUtODMwODU3ODkzOTc4",
+              "@type": "odrl:Offer",
+              "odrl:permission": [],
+              "odrl:prohibition": [],
+              "odrl:obligation": [
+                {
+                  "odrl:action":{
+                    "@id":"odrl:use"
+                  }
+                }
+              ]
+            },
+            "dcat:distribution": [
+              {
+                "@type": "dcat:Distribution",
+                "dct:format": {
+                  "@id": "HttpData-PULL"
+                },
+                "dcat:accessService": {
+                  "@id": "cccd7e4f-e46c-43c3-847d-fde76067517f",
+                  "@type": "dcat:DataService"
+                }
+              },
+              {
+                "@type": "dcat:Distribution",
+                "dct:format": {
+                  "@id": "HttpData-PUSH"
+                },
+                "dcat:accessService": {
+                  "@id": "cccd7e4f-e46c-43c3-847d-fde76067517f",
+                  "@type": "dcat:DataService"
+                }
+              },
+              {
+                "@type": "dcat:Distribution",
+                "dct:format": {
+                  "@id": "Kafka-PUSH"
+                },
+                "dcat:accessService": {
+                  "@id": "cccd7e4f-e46c-43c3-847d-fde76067517f",
+                  "@type": "dcat:DataService"
+                }
+              }
+            ],
+            "version": "1.0",
+            "createdAt": "2026-02-20T12:00:00Z",
+            "name": "obligation-test",
+            "description": "obligation-test",
+            "id": "obligation-test",
+            "contenttype": "application/json"
+          }
         ],
         "dcat:catalog": [],
         "dcat:distribution": [],

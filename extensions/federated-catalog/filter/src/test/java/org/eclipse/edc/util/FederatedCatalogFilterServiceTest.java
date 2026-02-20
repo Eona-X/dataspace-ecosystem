@@ -78,7 +78,7 @@ public class FederatedCatalogFilterServiceTest {
     private final Monitor monitor = mock();
     private static final String PARTICIPANT_DID = "did:web:participant";
     private static ParticipantIdMapper participantIdMapper = mock(ParticipantIdMapper.class);
-    private static final String CATALOG_REPLY = "/catalogReply.txt";
+    private static final String CATALOG_REPLY = "/catalogReply.json";
     private static TypeTransformerRegistry transformerRegistry = new TypeTransformerRegistryImpl();
     private final JsonLd jsonLd = new TitaniumJsonLd(monitor);
     private static HttpClient httpClient = mock(HttpClient.class);
@@ -138,6 +138,16 @@ public class FederatedCatalogFilterServiceTest {
         assertTrue(
                 result.stream()
                         .anyMatch(c -> c.getDatasets().stream()
+                                .anyMatch(d -> d.getId().equals("prohibition-test")))
+        );
+        assertTrue(
+                result.stream()
+                        .anyMatch(c -> c.getDatasets().stream()
+                                .anyMatch(d -> d.getId().equals("obligation-test")))
+        );
+        assertTrue(
+                result.stream()
+                        .anyMatch(c -> c.getDatasets().stream()
                                 .anyMatch(d -> d.getId().equals("restricted-route-asset")))
         );
         assertFalse(
@@ -178,7 +188,7 @@ public class FederatedCatalogFilterServiceTest {
 
     private static String loadCatalogFromFile(String resourcePath) throws IOException {
         String catalogReply;
-        try (var is = FederatedCatalogFilterServiceTest.class.getResourceAsStream("/catalogReply.txt")) {
+        try (var is = FederatedCatalogFilterServiceTest.class.getResourceAsStream(resourcePath)) {
             catalogReply = new String(is.readAllBytes(), StandardCharsets.UTF_8);
         }
         return catalogReply;
