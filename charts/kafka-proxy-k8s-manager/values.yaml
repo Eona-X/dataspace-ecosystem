@@ -86,7 +86,7 @@ kafkaProxy:
     # Base proxy port for Kafka proxy instances
     # This is the port that will be used for the Kafka proxy service
     # Default: 30001
-    baseProxyPort: 30001
+    baseProxyPort: 30003
     
     # Maximum number of broker ports to expose
     # For multi-broker Kafka clusters, the proxy needs to expose sequential ports
@@ -95,21 +95,44 @@ kafkaProxy:
     # Default: 20 (supports clusters with up to 20 brokers)
     maxBrokerPorts: 20
     
-    # Downstream Authentication Configuration
-    # Configures how clients authenticate to the proxy's listener
+    # Downstream Authentication Configuration (App -> Proxy)
     auth:
       enabled: false
-      # Authentication mechanism: PLAIN or OAUTHBEARER
-      # PLAIN: Hybrid JWT-over-PLAIN using entra-token-verifier (accepts JWT as password)
-      # OAUTHBEARER: Proper OAuth2 flow using entra-token-info (implements TokenInfo interface)
-      mechanism: "PLAIN"  # Options: PLAIN, OAUTHBEARER
+      mechanism: ""  # Options: PLAIN, OAUTHBEARER
+      # tenantId: Azure AD tenant ID (optional if OIDC URLs are provided)
       tenantId: ""
       clientId: ""
-      # Static users for fallback authentication (comma-separated username:password pairs)
-      # Only used with PLAIN mechanism
+      # Static users for fallback (PLAIN only)
       staticUsers: ""
-      # Custom image with authentication plugins (entra-token-verifier, entra-token-info)
+      # Custom image with plugins
       image: ""
+
+    # OIDC Configuration (Keycloak/Generic OIDC)
+    # These values populate the INFO_*, VERIFIER_*, and PROVIDER_* environment variables
+    oidc:
+      # Base URL of your OIDC provider (e.g., http://keycloak.keycloak.svc:8080)
+      baseUrl: ""
+      # Realm name
+      realm: ""
+      
+      # Verifier / Info settings (for incoming app connections)
+      verifier:
+        # Expected audience in tokens (defaults to auth.clientId)
+        clientId: ""
+        # Required scopes (comma-separated, e.g., "openid,email")
+        requiredScopes: ""
+      
+      # Provider settings (for outgoing proxy -> broker connections)
+      provider:
+        # Confidential client ID for the proxy itself
+        clientId: ""
+        # Secret for the proxy client (can be provided as plain text or via Secret)
+        clientSecret: ""
+        # Reference to an existing Secret for the client secret
+        clientSecretName: ""
+        clientSecretKey: ""
+        # Scope to request
+        scope: ""
     
     # TLS Listener Configuration
     tls:
