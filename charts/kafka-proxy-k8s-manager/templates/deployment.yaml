@@ -52,6 +52,15 @@ spec:
               protocol: TCP
           env:
             {{- include "kafka-proxy.env" . | nindent 12 }}
+            {{- range .Values.extraEnv }}
+            - name: {{ .name }}
+              {{- if .value }}
+              value: {{ .value | quote }}
+              {{- else if .valueFrom }}
+              valueFrom:
+                {{- toYaml .valueFrom | nindent 16 }}
+              {{- end }}
+            {{- end }}
             - name: "JAVA_TOOL_OPTIONS"
               value: "-Djavax.net.ssl.trustStore={{ .Values.kafkaProxy.manager.certDir }}/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
           {{- with .Values.extraEnvFrom }}

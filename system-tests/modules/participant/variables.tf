@@ -57,26 +57,55 @@ variable "auth_enabled" {
   default     = true
 }
 
+# Keycloak/OIDC settings for local tests
+variable "keycloak_base_url" {
+  description = "Base URL of Keycloak (localhost won't work, k8s localhost is a pod)"
+  type        = string
+  default     = ""
+}
+
+variable "keycloak_realm" {
+  description = "Keycloak realm name"
+  type        = string
+  default     = ""
+}
+
+variable "verifier_client_id" {
+  description = "Client ID expected as audience (aud) by the verifier (typically the front-end public client)"
+  type        = string
+  default     = ""
+}
+
+variable "verifier_required_scopes" {
+  description = "Comma-separated list of required scopes for verifier (e.g., 'openid,email')"
+  type        = string
+  default     = ""
+}
+
+# Optional: provider (client_credentials) settings for future use
+variable "provider_client_id" {
+  description = "Confidential client ID for the proxy when using client_credentials (optional)"
+  type        = string
+  default     = ""
+}
+
+variable "provider_client_secret" {
+  description = "Secret for the confidential proxy client (used for client_credentials)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "provider_scope" {
+  description = "Scope(s) to request for client_credentials (optional, e.g., 'openid')"
+  type        = string
+  default     = "openid email"
+}
+
 variable "auth_mechanism" {
   description = "Authentication mechanism: PLAIN (JWT-over-PLAIN) or OAUTHBEARER (proper OAuth2)"
   type        = string
-  default     = "PLAIN"
-  validation {
-    condition     = contains(["PLAIN", "OAUTHBEARER"], var.auth_mechanism)
-    error_message = "Authentication mechanism must be either PLAIN or OAUTHBEARER."
-  }
-}
-
-variable "auth_tenant_id" {
-  description = "Microsoft Entra ID (Azure AD) tenant ID for authentication"
-  type        = string
-  default     = "<your-tenant-id>"
-}
-
-variable "auth_client_id" {
-  description = "Application client ID registered in Entra ID for authentication"
-  type        = string
-  default     = "<your-client-id>"
+  default     = ""
 }
 
 variable "auth_static_users" {

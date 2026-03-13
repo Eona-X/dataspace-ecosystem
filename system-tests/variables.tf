@@ -21,7 +21,7 @@ variable "kube_config_path" {
 variable "environment" {
   description = "The environment (local, devbox or production)"
   type        = string
-  default     = "production" # Default to "production" if not defined
+  default     = ""
 }
 
 variable "account_secret_azurite" {
@@ -67,24 +67,10 @@ variable "auth_mechanism" {
   }
 }
 
-variable "auth_tenant_id" {
-  description = "Microsoft Entra ID (Azure AD) tenant ID for authentication"
-  type        = string
-  default     = "<tenant-id>"
-  sensitive   = false
-}
-
-variable "auth_client_id" {
-  description = "Application client ID registered in Entra ID for authentication"
-  type        = string
-  default     = "<client-id>"
-  sensitive   = false
-}
-
 variable "auth_static_users" {
   description = "Static users for fallback authentication (format: username1:password1,username2:password2)"
   type        = string
-  default     = "admin:admin-secret"
+  default     = "admin:admin123,token:token123"
   sensitive   = true
 }
 
@@ -100,4 +86,59 @@ variable "vault_folder" {
   description = "Vault folder for secrets organization. Empty = secret/, 'consumer' = secret/consumer/"
   type        = string
   default     = ""
+}
+
+# Keycloak/OIDC Configuration
+# FIXME: identity provider generic name
+variable "keycloak_base_url" {
+  description = "Base URL of Keycloak"
+  type        = string
+  default     = "http://172.18.0.1:8080"
+}
+
+variable "keycloak_realm" {
+  description = "Keycloak realm name"
+  type        = string
+  default     = "master"
+}
+
+variable "verifier_client_id" {
+  description = "Client ID expected as audience (aud) by the verifier"
+  type        = string
+  default     = "dataspace-ui"
+}
+
+variable "verifier_required_scopes" {
+  description = "Comma-separated list of required scopes for verifier (e.g., 'openid,email')"
+  type        = string
+  default     = "openid,email"
+}
+
+variable "provider_client_id" {
+  description = "Confidential client ID for the proxy when using client_credentials"
+  type        = string
+  default     = "kafka-proxy"
+}
+
+variable "provider_client_secret" {
+  description = "Secret for the confidential proxy client (used for client_credentials)"
+  type        = string
+  default     = "jOfmWbbmwzVg8ES6kTiJrC6xuXgrPpeu"
+  sensitive   = true
+}
+
+variable "provider_scope" {
+  description = "Scope(s) to request for client_credentials (optional, e.g., 'openid')"
+  type        = string
+  default     = "openid email"
+}
+
+variable "provider_auth_mechanism" {
+  description = "Authentication mechanism: PLAIN (JWT-over-PLAIN) or OAUTHBEARER (proper OAuth2)"
+  type        = string
+  default     = "OAUTHBEARER"
+  validation {
+    condition     = contains(["PLAIN", "OAUTHBEARER"], var.provider_auth_mechanism)
+    error_message = "Authentication mechanism must be either PLAIN or OAUTHBEARER."
+  }
 }

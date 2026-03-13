@@ -85,6 +85,47 @@ Generate environment variables
     secretKeyRef:
       name: {{ .Values.kafkaProxy.manager.vaultTokenSecret.name }}
       key: {{ .Values.kafkaProxy.manager.vaultTokenSecret.key }}
+{{- if .Values.kafkaProxy.manager.oidc.baseUrl }}
+{{- $oidc := .Values.kafkaProxy.manager.oidc }}
+{{- $baseUrl := $oidc.baseUrl | trimSuffix "/" }}
+{{- $issuer := printf "%s/realms/%s" $baseUrl $oidc.realm }}
+{{- $jwksUrl := printf "%s/protocol/openid-connect/certs" $issuer }}
+{{- $tokenUrl := printf "%s/protocol/openid-connect/token" $issuer }}
+{{- $allowedIssuers := $issuer }}
+{{- if not (contains "localhost" $baseUrl) }}
+{{- $allowedIssuers = printf "%s,http://localhost:8080/realms/%s" $issuer $oidc.realm }}
+{{- end }}
+- name: INFO_JWKS_URL
+  value: {{ $jwksUrl | quote }}
+- name: INFO_ALLOWED_ISSUERS
+  value: {{ $allowedIssuers | quote }}
+- name: INFO_CLIENT_ID
+  value: {{ default .Values.kafkaProxy.manager.auth.clientId $oidc.verifier.clientId | quote }}
+- name: VERIFIER_JWKS_URL
+  value: {{ $jwksUrl | quote }}
+- name: VERIFIER_ALLOWED_ISSUERS
+  value: {{ $allowedIssuers | quote }}
+- name: VERIFIER_CLIENT_ID
+  value: {{ default .Values.kafkaProxy.manager.auth.clientId $oidc.verifier.clientId | quote }}
+- name: VERIFIER_REQUIRED_SCOPES
+  value: {{ $oidc.verifier.requiredScopes | quote }}
+- name: PROVIDER_TOKEN_URL
+  value: {{ $tokenUrl | quote }}
+- name: PROVIDER_CLIENT_ID
+  value: {{ $oidc.provider.clientId | quote }}
+- name: PROVIDER_SCOPE
+  value: {{ $oidc.provider.scope | quote }}
+{{- if $oidc.provider.clientSecret }}
+- name: PROVIDER_CLIENT_SECRET
+  value: {{ $oidc.provider.clientSecret | quote }}
+{{- else if $oidc.provider.clientSecretName }}
+- name: PROVIDER_CLIENT_SECRET
+  valueFrom:
+    secretKeyRef:
+      name: {{ $oidc.provider.clientSecretName }}
+      key: {{ $oidc.provider.clientSecretKey }}
+{{- end }}
+{{- end }}
 {{- if and .Values.kafkaProxy.manager.edc .Values.kafkaProxy.manager.edc.keystore }}
 - name: EDC_KEYSTORE
   value: {{ .Values.kafkaProxy.manager.edc.keystore | quote }}
@@ -108,15 +149,6 @@ Generate environment variables
 {{- if and .Values.kafkaProxy.manager.vaultTls.enabled .Values.kafkaProxy.manager.vaultTls.caCert.secret }}
 - name: VAULT_SSL_CERT
   value: {{ .Values.kafkaProxy.manager.vaultTls.caCert.path | default "/vault-ca/ca.crt" | quote }}
-{{- end }}
-{{- range .Values.extraEnv }}
-- name: {{ .name }}
-  {{- if .value }}
-  value: {{ .value | quote }}
-  {{- else if .valueFrom }}
-  valueFrom:
-    {{- toYaml .valueFrom | nindent 4 }}
-  {{- end }}
 {{- end }}
 {{- end }}
 

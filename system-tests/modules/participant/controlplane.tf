@@ -58,7 +58,7 @@ resource "helm_release" "controlplane" {
           "authority" : {
             "did" : local.authority_did
           }
-        }
+        },
 
         "logging" : <<EOT
         .level=DEBUG

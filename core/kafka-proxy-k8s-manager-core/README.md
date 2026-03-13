@@ -472,11 +472,11 @@ When `kafka.proxy.auth.enabled=true`, adds init container:
 ```yaml
 initContainers:
 - name: auth-plugin
-  image: kafka-proxy-entra-auth:latest
+  image: kafka-proxy-oidc-auth:latest
   volumeMounts:
   - name: plugin-shared
     mountPath: /plugin
-  command: ["cp", "/app/entra-token-verifier.so", "/plugin/"]
+  command: ["cp", "/app/oidc-token-verifier.so", "/plugin/"]
 ```
 
 #### TLS Certificate Mounting:
@@ -781,10 +781,9 @@ These settings configure how **clients authenticate to the proxy's listener port
 |----------|------|---------|-------------|
 | `kafka.proxy.auth.enabled` | Boolean | `false` | Enable authentication on proxy listener. When true, clients must authenticate before accessing the proxy. Requires custom authentication plugin image. |
 | `kafka.proxy.auth.mechanism` | String | `PLAIN` | Authentication mechanism. `PLAIN` = Hybrid JWT-over-PLAIN (accepts JWT as password), `OAUTHBEARER` = Proper OAuth2 flow (implements TokenInfo interface). |
-| `kafka.proxy.auth.tenant.id` | String | N/A | Microsoft Entra ID (Azure AD) tenant ID. Required for JWT validation. Format: UUID (e.g., `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`). |
-| `kafka.proxy.auth.client.id` | String | N/A | Application client ID registered in Entra ID. Used to validate JWT audience claim. Format: UUID . |
+| `kafka.proxy.auth.client.id` | String | N/A | Application client ID registered in oidc ID. Used to validate JWT audience claim. Format: UUID . |
 | `kafka.proxy.auth.static.users` | String | `""` | Static users for fallback authentication. Format: `username1:password1,username2:password2`. **Only works with PLAIN mechanism.** Example: `admin:admin-secret`. **Sensitive - for testing only!** |
-| `kafka.proxy.auth.image` | String | `kafka-proxy-entra-auth:latest` | Custom Docker image with authentication plugins. Must contain `entra-token-verifier` (for PLAIN) or `entra-token-info` (for OAUTHBEARER) plugins. See [Building Authentication Plugin](#building-authentication-plugin). |
+| `kafka.proxy.auth.image` | String | `kafka-proxy-oidc-auth:latest` | Custom Docker image with authentication plugins. Must contain `oidc-token-verifier` (for PLAIN) or `oidc-token-info` (for OAUTHBEARER) plugins. See [Building Authentication Plugin](#building-authentication-plugin). |
 
 **Example Authentication Configuration:**
 ```properties
@@ -794,7 +793,7 @@ kafka.proxy.auth.mechanism=PLAIN
 kafka.proxy.auth.tenant.id=<your-tenant-id>
 kafka.proxy.auth.client.id=<your-client-id>
 kafka.proxy.auth.static.users=admin:admin-secret
-kafka.proxy.auth.image=localhost/kafka-proxy-entra-auth:latest
+kafka.proxy.auth.image=localhost/kafka-proxy-oidc-auth:latest
 ```
 
 #### TLS Listener Configuration
@@ -873,10 +872,9 @@ kafka.proxy.max.broker.ports=20
 # ============================================
 kafka.proxy.auth.enabled=true
 kafka.proxy.auth.mechanism=PLAIN
-kafka.proxy.auth.tenant.id=<tenant-id>
 kafka.proxy.auth.client.id=<client-id>
 kafka.proxy.auth.static.users=admin:admin-secret
-kafka.proxy.auth.image=localhost/kafka-proxy-entra-auth:latest
+kafka.proxy.auth.image=localhost/kafka-proxy-oidc-auth:latest
 
 # ============================================
 # TLS Listener Configuration
@@ -985,16 +983,16 @@ The service supports two authentication mechanisms for downstream clients:
 
 ### PLAIN Mechanism (Hybrid JWT-over-PLAIN)
 
-Uses the `entra-token-verifier` plugin:
+Uses the `oidc-token-verifier` plugin:
 - Client sends username (any value) and JWT token as password
-- Plugin validates JWT token against Azure Entra ID
+- Plugin validates JWT token against oidc
 - Supports static username/password fallback for testing
 
 **Use case**: Clients that can't implement OAuth2 OAUTHBEARER but can send JWT in password field
 
 ### OAUTHBEARER Mechanism (Proper OAuth2)
 
-Uses the `entra-token-info` plugin:
+Uses the `oidc-token-info` plugin:
 - Client implements proper OAuth2 OAUTHBEARER SASL mechanism
 - Plugin validates bearer tokens via TokenInfo interface
 - No static user fallback (OAuth2 only)
@@ -1007,16 +1005,16 @@ The authentication plugins must be available as a custom kafka-proxy image:
 
 ```dockerfile
 # Example structure
-kafka-proxy-entra-auth:latest
+kafka-proxy-oidc-auth:latest
 ├── kafka-proxy (binary)
 ├── plugin/
-│   ├── entra-token-verifier.so    # For PLAIN mechanism
-│   └── entra-token-info.so        # For OAUTHBEARER mechanism
+│   ├── oidc-token-verifier.so    # For PLAIN mechanism
+│   └── oidc-token-info.so        # For OAUTHBEARER mechanism
 ```
 
 Build and load this image to your Kubernetes cluster, then configure:
 ```properties
-kafka.proxy.auth.image=localhost/kafka-proxy-entra-auth:latest
+kafka.proxy.auth.image=localhost/kafka-proxy-oidc-auth:latest
 ```
 
 ## Deployment Architecture
@@ -1050,7 +1048,7 @@ kafka.proxy.auth.image=localhost/kafka-proxy-entra-auth:latest
                     │  Kubernetes Cluster             │
                     │  ┌───────────────────────────┐  │
                     │  │ kafka-proxy-edr--<id-1>   │  │
-                    │  │  + entra-auth (optional)  │  │
+                    │  │  + oidc-auth (optional)  │  │
                     │  └───────────────────────────┘  │
                     │  ┌───────────────────────────┐  │
                     │  │ kafka-proxy-edr--<id-2>   │  │
@@ -1078,7 +1076,7 @@ kafka.proxy.auth.image=localhost/kafka-proxy-entra-auth:latest
 - **Namespace Isolation**: Deploy proxies in dedicated namespaces for isolation
 
 ### Authentication Secrets
-- **Azure Entra ID**: Protect tenant ID and client ID configuration
+- **Client ID**: Protect client ID configuration
 - **Static Users**: Avoid using static users in production; use OAuth2 mechanisms only
 - **JWT Validation**: The authentication plugins validate JWT signatures and claims
 
