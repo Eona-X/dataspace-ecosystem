@@ -65,7 +65,6 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         
         boolean authEnabled = context.getConfig().getBoolean(KafkaProxyConfig.AUTH_ENABLED, false);
         String authMechanism = context.getConfig().getString(KafkaProxyConfig.AUTH_MECHANISM, KafkaProxyConfig.DEFAULT_AUTH_MECHANISM);
-        String authTenantId = context.getConfig().getString(KafkaProxyConfig.AUTH_TENANT_ID, "");
         String authClientId = context.getConfig().getString(KafkaProxyConfig.AUTH_CLIENT_ID, "");
         String authStaticUsers = context.getConfig().getString(KafkaProxyConfig.AUTH_STATIC_USERS, "");
         String authImage = context.getConfig().getString(KafkaProxyConfig.AUTH_IMAGE, KafkaProxyConfig.DEFAULT_AUTH_IMAGE);
@@ -124,7 +123,6 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         monitor.info("  Authentication Enabled: " + authEnabled);
         if (authEnabled) {
             monitor.info("  Authentication Mechanism: " + authMechanism);
-            monitor.info("  Auth Tenant ID: " + authTenantId);
             monitor.info("  Auth Client ID: " + authClientId);
             monitor.info("  Auth Static Users: " + authStaticUsers);
             monitor.info("  Auth Plugin Image: " + authImage);
@@ -148,7 +146,7 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         var kubernetesClient = new DefaultKubernetesClient();
         var vaultService = new VaultService(vaultAddr, vaultToken, vaultFolder);
         var deployerService = new KubernetesDeployerService(kubernetesClient, proxyNamespace, proxyImage, 
-                vaultService, participantId, serviceClusterIp, baseProxyPort, authEnabled, authMechanism, authTenantId, authClientId, authStaticUsers, authImage,
+                vaultService, participantId, serviceClusterIp, baseProxyPort, authEnabled, authMechanism, authClientId, authStaticUsers, authImage,
                 tlsListenerEnabled, tlsListenerCertSecret, tlsListenerKeySecret, tlsListenerCaSecret, additionalPodLabels, maxBrokerPorts);
         var checkerService = new KubernetesCheckerService(kubernetesClient, proxyNamespace, participantId);
         

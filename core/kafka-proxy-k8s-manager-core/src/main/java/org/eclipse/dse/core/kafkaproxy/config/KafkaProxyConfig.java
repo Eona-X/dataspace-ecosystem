@@ -39,7 +39,6 @@ public class KafkaProxyConfig {
     // Supports PLAIN (JWT-over-PLAIN) and OAUTHBEARER (proper OAuth2) mechanisms
     public static final String AUTH_ENABLED = "kafka.proxy.auth.enabled";
     public static final String AUTH_MECHANISM = "kafka.proxy.auth.mechanism";  // PLAIN or OAUTHBEARER
-    public static final String AUTH_TENANT_ID = "kafka.proxy.auth.tenant.id";
     public static final String AUTH_CLIENT_ID = "kafka.proxy.auth.client.id";
     public static final String AUTH_STATIC_USERS = "kafka.proxy.auth.static.users";  // Only for PLAIN mechanism
     public static final String AUTH_IMAGE = "kafka.proxy.auth.image";
@@ -61,9 +60,9 @@ public class KafkaProxyConfig {
     public static final String DEFAULT_SHARED_DIR = "/shared";
     public static final String DEFAULT_PROXY_NAMESPACE = "default";
     public static final String DEFAULT_PROXY_IMAGE = "grepplabs/kafka-proxy:0.4.2";
-    public static final String DEFAULT_AUTH_IMAGE = "kafka-proxy-entra-auth:latest";
+    public static final String DEFAULT_AUTH_IMAGE = "kafka-proxy-oidc-auth:latest";
     public static final String DEFAULT_AUTH_MECHANISM = "PLAIN";  // PLAIN (JWT-over-PLAIN) or OAUTHBEARER (proper OAuth2)
-    public static final String DEFAULT_BASE_PROXY_PORT = "30001";
+    public static final String DEFAULT_BASE_PROXY_PORT = "30003";
     public static final int MAX_ALLOWED_BROKER_PORTS = 20;
     public static final int LARGEST_AVAILABLE_PORT = 65535;
     
