@@ -1,4 +1,4 @@
-# Makefile for Kafka Proxy Entra ID Authentication Plugins
+# Makefile for Kafka Proxy OIDC/OAuth2 Authentication Plugins
 
 # Variables
 GO_VERSION := 1.24.7
@@ -66,11 +66,11 @@ else
     BINARY_EXT :=
 endif
 
-PROVIDER_BINARY := $(BINARY_DIR)/entra-token-provider$(BINARY_EXT)
-VERIFIER_BINARY := $(BINARY_DIR)/entra-token-verifier$(BINARY_EXT)
-TOKEN_INFO_BINARY := $(BINARY_DIR)/entra-token-info$(BINARY_EXT)
+PROVIDER_BINARY := $(BINARY_DIR)/oidc-token-provider$(BINARY_EXT)
+VERIFIER_BINARY := $(BINARY_DIR)/oidc-token-verifier$(BINARY_EXT)
+TOKEN_INFO_BINARY := $(BINARY_DIR)/oidc-token-info$(BINARY_EXT)
 
-DOCKER_IMAGE := kafka-proxy-entra-auth
+DOCKER_IMAGE := kafka-proxy-oidc-auth
 DOCKER_TAG := latest
 
 # Build targets
@@ -92,23 +92,23 @@ endif
 ## build: Build provider, verifier and token-info binaries
 build: setup-go build-provider build-verifier build-token-info
 
-## build-provider: Build the entra-token-provider binary
+## build-provider: Build the oidc-token-provider binary
 build-provider: setup-go
-	@echo "Building entra-token-provider..."
+	@echo "Building oidc-token-provider..."
 	@mkdir -p $(BINARY_DIR)
-	$(GOBUILD) -buildvcs=false -o $(PROVIDER_BINARY) ./cmd/entra-token-provider
+	$(GOBUILD) -buildvcs=false -o $(PROVIDER_BINARY) ./cmd/oidc-token-provider
 
-## build-verifier: Build the entra-token-verifier binary
+## build-verifier: Build the oidc-token-verifier binary
 build-verifier: setup-go
-	@echo "Building entra-token-verifier..."
+	@echo "Building oidc-token-verifier..."
 	@mkdir -p $(BINARY_DIR)
-	$(GOBUILD) -buildvcs=false -o $(VERIFIER_BINARY) ./cmd/entra-token-verifier
+	$(GOBUILD) -buildvcs=false -o $(VERIFIER_BINARY) ./cmd/oidc-token-verifier
 
-## build-token-info: Build the entra-token-info binary
+## build-token-info: Build the oidc-token-info binary
 build-token-info: setup-go
-	@echo "Building entra-token-info..."
+	@echo "Building oidc-token-info..."
 	@mkdir -p $(BINARY_DIR)
-	$(GOBUILD) -buildvcs=false -o $(TOKEN_INFO_BINARY) ./cmd/entra-token-info
+	$(GOBUILD) -buildvcs=false -o $(TOKEN_INFO_BINARY) ./cmd/oidc-token-info
 
 ## build-linux: Build binaries for Linux (used for Docker)
 build-linux: setup-go
@@ -118,41 +118,41 @@ ifdef CONTAINER_CMD
     ifeq ($(IS_WINDOWS),1)
         # Windows-specific settings (Git Bash/MSYS)
 		@echo "Attempting containerized build with $(CONTAINER_CMD)..."; \
-		if ! MSYS_NO_PATHCONV=1 "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w //workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/entra-token-provider ./cmd/entra-token-provider; then \
+		if ! MSYS_NO_PATHCONV=1 "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w //workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/oidc-token-provider ./cmd/oidc-token-provider; then \
 			echo "Container build failed, falling back to local Go..."; \
-			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/entra-token-provider ./cmd/entra-token-provider; \
+			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/oidc-token-provider ./cmd/oidc-token-provider; \
 		fi
-		@if ! MSYS_NO_PATHCONV=1 "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w //workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/entra-token-verifier ./cmd/entra-token-verifier; then \
+		@if ! MSYS_NO_PATHCONV=1 "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w //workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/oidc-token-verifier ./cmd/oidc-token-verifier; then \
 			echo "Container build failed, falling back to local Go..."; \
-			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/entra-token-verifier ./cmd/entra-token-verifier; \
+			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/oidc-token-verifier ./cmd/oidc-token-verifier; \
 		fi
-		@if ! MSYS_NO_PATHCONV=1 "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w //workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/entra-token-info ./cmd/entra-token-info; then \
+		@if ! MSYS_NO_PATHCONV=1 "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w //workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/oidc-token-info ./cmd/oidc-token-info; then \
 			echo "Container build failed, falling back to local Go..."; \
-			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/entra-token-info ./cmd/entra-token-info; \
+			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/oidc-token-info ./cmd/oidc-token-info; \
 		fi
     else
         # Linux/macOS settings
 		@echo "Attempting containerized build with $(CONTAINER_CMD)..."; \
-		if ! "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w /workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/entra-token-provider ./cmd/entra-token-provider; then \
+		if ! "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w /workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/oidc-token-provider ./cmd/oidc-token-provider; then \
 			echo "Container build failed, falling back to local Go..."; \
-			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/entra-token-provider ./cmd/entra-token-provider; \
+			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/oidc-token-provider ./cmd/oidc-token-provider; \
 		fi
-		@if ! "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w /workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/entra-token-verifier ./cmd/entra-token-verifier; then \
+		@if ! "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w /workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/oidc-token-verifier ./cmd/oidc-token-verifier; then \
 			echo "Container build failed, falling back to local Go..."; \
-			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/entra-token-verifier ./cmd/entra-token-verifier; \
+			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/oidc-token-verifier ./cmd/oidc-token-verifier; \
 		fi
-		@if ! "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w /workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/entra-token-info ./cmd/entra-token-info; then \
+		@if ! "$(CONTAINER_CMD)" run --rm -v "$(PROJECT_ROOT)":/workspace -w /workspace/plugins/kafka-proxy-auth -e GOOS=linux -e GOARCH=$(DOCKER_GOARCH) -e CGO_ENABLED=0 $(GO_IMAGE) go build -buildvcs=false -o bin/oidc-token-info ./cmd/oidc-token-info; then \
 			echo "Container build failed, falling back to local Go..."; \
-			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/entra-token-info ./cmd/entra-token-info; \
+			GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/oidc-token-info ./cmd/oidc-token-info; \
 		fi
     endif
 else
-	GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/entra-token-provider ./cmd/entra-token-provider
-	GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/entra-token-verifier ./cmd/entra-token-verifier
-	GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/entra-token-info ./cmd/entra-token-info
+	GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/oidc-token-provider ./cmd/oidc-token-provider
+	GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/oidc-token-verifier ./cmd/oidc-token-verifier
+	GOOS=linux GOARCH=$(DOCKER_GOARCH) CGO_ENABLED=0 go build -buildvcs=false -o bin/oidc-token-info ./cmd/oidc-token-info
 endif
 	@echo "Setting execute permissions on binaries..."
-	@chmod +x $(BINARY_DIR)/entra-token-provider $(BINARY_DIR)/entra-token-verifier $(BINARY_DIR)/entra-token-info 2>/dev/null || true
+	@chmod +x $(BINARY_DIR)/oidc-token-provider $(BINARY_DIR)/oidc-token-verifier $(BINARY_DIR)/oidc-token-info 2>/dev/null || true
 	@echo "Go plugins built successfully for Linux/Docker"
 
 ## clean: Clean build artifacts
@@ -197,7 +197,7 @@ endif
 
 ## help: Display this help message
 help:
-	@echo "Kafka Proxy Entra ID Authentication Plugin Build"
+	@echo "Kafka Proxy OIDC/OAuth2 Authentication Plugin Build"
 	@echo ""
 	@echo "Available targets:"
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' | sed -e 's/^/ /'
