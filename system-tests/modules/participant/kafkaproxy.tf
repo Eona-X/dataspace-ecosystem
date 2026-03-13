@@ -1,5 +1,6 @@
 locals {
   kafkaproxy_release_name = "${var.participant_name}-kafka-proxy-k8s-manager"
+  oidc_secret_name       = "kp-oidc-${var.participant_name}-secret"
   kafka_proxy_image = (
     var.environment == "local" ? "localhost/kafka-proxy-k8s-manager" :
     var.environment == "devbox" ? "${var.devbox-registry}/kafka-proxy-k8s-manager" :
@@ -7,10 +8,25 @@ locals {
   )
 
   kafka_plugin_image = (
-    var.environment == "local" ? "localhost/kafka-proxy-entra-auth:latest" :
-    var.environment == "devbox" ? "${var.devbox-registry}/kafka-proxy-entra-auth:latest" :
-    "kafka-proxy-entra-auth:latest"
+    var.environment == "local" ? "kafka-proxy-oidc-auth:latest" :
+    var.environment == "devbox" ? "${var.devbox-registry}/kafka-proxy-oidc-auth:latest" :
+    "kafka-proxy-oidc-auth:latest"
   )
+}
+
+resource "kubernetes_secret" "kafka_proxy_oidc" {
+  count = var.environment == "selfhosted" ? 0 : 1
+  metadata {
+    name      = local.oidc_secret_name
+    namespace = "default"
+  }
+
+  data = {
+    "client-secret" = var.provider_client_secret != "" ? var.provider_client_secret : "placeholder-secret"
+    "AUTH_STATIC_USERS" = var.auth_static_users != "" ? var.auth_static_users : "user:password"
+  }
+
+  type = "Opaque"
 }
 
 resource "helm_release" "kafkaproxy" {
@@ -25,80 +41,93 @@ resource "helm_release" "kafkaproxy" {
 
   values = [
     yamlencode({
-      "global" : {
-        "imagePullSecrets" : var.environment == "devbox" ? [
-          {
-            "name" : var.devbox-registry-cred
+      imagePullSecrets = var.environment == "devbox" ? [
+        {
+          name = var.devbox-registry-cred
+        }
+      ] : []
+      kafkaProxy = {
+        manager = {
+          image = {
+            registry   = ""
+            repository = local.kafka_proxy_image
+            pullPolicy = local.image_pull_policy
+            tag        = "latest"
           }
-        ] : []
-      }
-      "kafkaProxy" : {
-        "manager" : {
-          "image" : {
-            "repository" : local.kafka_proxy_image
-            "pullPolicy" : local.image_pull_policy
-            "tag" : "latest"
-          }
-          "initContainers" : []
+          initContainers = []
           # Vault configuration
-          "vaultAddr" : module.vault.vault_url
-          "vaultTokenSecret" : {
-            "name" : module.vault.vault_secret_name
-            "key" : "rootToken"
+          vaultAddr = module.vault.vault_url
+          vaultTokenSecret = {
+            name = module.vault.vault_secret_name
+            key  = "rootToken"
           }
-          "vaultFolder" : var.vault_folder
-          "vaultTls" : {
-            "enabled" : false
+          vaultFolder = var.vault_folder
+          vaultTls = {
+            enabled = false
           }
 
           # Kubernetes configuration
-          "namespace" : "default"
-          "proxyImage" : "grepplabs/kafka-proxy:0.4.2"
-          "sharedDir" : "/shared"
-          "checkInterval" : 5 # Reduced for faster test execution
-          "enableLock" : true
-          "lockFilePath" : "/tmp/kubectl-deployer.lock"
+          namespace     = "default"
+          proxyImage    = "grepplabs/kafka-proxy:0.4.2"
+          sharedDir     = "/shared"
+          checkInterval = 5 # Reduced for faster test execution
+          enableLock    = true
+          lockFilePath  = "/tmp/kubectl-deployer.lock"
 
           # Participant configuration for ownership isolation
-          "participantId" : "${var.participant_name}"
+          participantId = var.participant_name
 
           # Downstream Authentication Configuration
-          "auth" : {
-            "enabled" : var.auth_enabled
-            "mechanism" : var.auth_mechanism
-            "tenantId" : var.auth_tenant_id
-            "clientId" : var.auth_client_id
-            "staticUsers" : var.auth_static_users
-            "image" : local.kafka_plugin_image
+          auth = {
+            enabled     = var.auth_enabled
+            mechanism   = var.auth_mechanism
+            staticUsers = var.auth_static_users
+            image       = local.kafka_plugin_image
           }
 
           # TLS Listener Configuration
-          "tls" : {
-            "listener" : {
-              "enabled" : var.tls_listener_enabled
-              "certSecret" : var.tls_listener_cert_secret
-              "keySecret" : var.tls_listener_key_secret
-              "caSecret" : var.tls_listener_ca_secret
+          tls = {
+            listener = {
+              enabled    = var.tls_listener_enabled
+              certSecret = var.tls_listener_cert_secret
+              keySecret  = var.tls_listener_key_secret
+              caSecret   = var.tls_listener_ca_secret
+            }
+          }
+
+          # OIDC Configuration for Keycloak (used by templates to derive INFO_*, VERIFIER_*, PROVIDER_*)
+          oidc = {
+            baseUrl = var.keycloak_base_url
+            realm   = var.keycloak_realm
+            verifier = {
+              clientId       = var.verifier_client_id
+              requiredScopes = var.verifier_required_scopes
+            }
+            provider = {
+              clientId         = var.provider_client_id
+              clientSecretName = local.oidc_secret_name
+              clientSecretKey  = "client-secret"
+              scope            = var.provider_scope
             }
           }
         }
       },
 
-      "ingress" : {
-        "enabled" : true
-        "className" : "nginx"
-        "annotations" : {
-          "nginx.ingress.kubernetes.io/ssl-redirect" : "false"
-          "nginx.ingress.kubernetes.io/use-regex" : "true"
-          "nginx.ingress.kubernetes.io/rewrite-target" : "/api/$1"
-        },
-        "hosts" : [
+      ingress = {
+        enabled   = true
+        className = "nginx"
+        annotations = {
+          "nginx.ingress.kubernetes.io/ssl-redirect" = "false"
+          "nginx.ingress.kubernetes.io/use-regex"    = "true"
+          "nginx.ingress.kubernetes.io/rewrite-target" = "/api/$1"
+        }
+        hosts = [
           {
-            "host" : ""
-            "paths" : [
+            host = ""
+            paths = [
               {
-                "path" : "${var.participant_with_prefix}/kafkaproxy/(.*)",
-                "pathType" : "ImplementationSpecific"
+                path     = "${var.participant_with_prefix}/kafkaproxy/(.*)"
+                pathType = "ImplementationSpecific"
               }
             ]
           }
@@ -106,46 +135,47 @@ resource "helm_release" "kafkaproxy" {
       },
 
       # Service Account and RBAC configuration
-      "serviceAccount" : {
-        "create" : true
-        "name" : "${var.participant_name}-kafkaproxy-sa"
+      serviceAccount = {
+        create = true
+        name   = "${var.participant_name}-kafkaproxy-sa"
       },
 
-      "rbac" : {
-        "create" : true
-        "rules" : [
+      rbac = {
+        create = true
+        rules = [
           {
-            "apiGroups" : [""]
-            "resources" : ["services", "pods", "configmaps", "secrets"]
-            "verbs" : ["get", "list", "watch", "create", "update", "patch", "delete"]
+            apiGroups = [""]
+            resources = ["services", "pods", "configmaps", "secrets"]
+            verbs     = ["get", "list", "watch", "create", "update", "patch", "delete"]
           },
           {
-            "apiGroups" : ["apps"]
-            "resources" : ["deployments", "replicasets"]
-            "verbs" : ["get", "list", "watch", "create", "update", "patch", "delete"]
+            apiGroups = ["apps"]
+            resources = ["deployments", "replicasets"]
+            verbs     = ["get", "list", "watch", "create", "update", "patch", "delete"]
           },
           {
-            "apiGroups" : ["networking.k8s.io"]
-            "resources" : ["networkpolicies"]
-            "verbs" : ["get", "list", "watch", "create", "update", "patch", "delete"]
+            apiGroups = ["networking.k8s.io"]
+            resources = ["networkpolicies"]
+            verbs     = ["get", "list", "watch", "create", "update", "patch", "delete"]
           }
         ]
       },
 
       # Persistence configuration
-      "persistence" : {
-        "shared" : {
-          "enabled" : true
-          "storageClass" : ""
-          "accessModes" : ["ReadWriteOnce"]
-          "size" : "1Gi"
+      persistence = {
+        shared = {
+          enabled      = true
+          storageClass = ""
+          accessModes  = ["ReadWriteOnce"]
+          size         = "1Gi"
         }
       },
 
       # Health checks - Temporarily disabled to debug endpoint
-      "healthCheck" : {
-        "enabled" : false
-      }
+      healthCheck = {
+        enabled = false
+      },
+
     })
   ]
 
