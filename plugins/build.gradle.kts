@@ -180,8 +180,8 @@ val dockerTask = tasks.register("dockerize", DockerBuildImage::class) {
 val dockerPushTask: DockerPushImage = tasks.create("dockerPush", DockerPushImage::class) {
     group = "distribution"
     description = "Push Docker image to registry"
-    images.add("${dockerRegistry}/${imageName}/${project.name}:${dockerImageTag}")
-    images.add("${dockerRegistry}/${imageName}/${project.name}:latest")
+    images.add("${dockerRegistry}/${dockerImageName}:${dockerImageTag}")
+    images.add("${dockerRegistry}/${dockerImageName}:latest")
 }
 // Ensure push happens after build
 dockerPushTask.dependsOn(dockerTask)
