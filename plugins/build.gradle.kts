@@ -156,7 +156,7 @@ val dockerTask = tasks.register("dockerize", DockerBuildImage::class) {
     images.add(imageName)
     
     if (dockerRegistry.isNotEmpty()) {
-        images.add("$dockerRegistry/$dockerImageName$dockerImageTag")
+        images.add("$dockerRegistry/$dockerImageName:$dockerImageTag")
         images.add("$dockerRegistry/$dockerImageName:latest")
     }
     
