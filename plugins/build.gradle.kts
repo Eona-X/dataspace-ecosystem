@@ -1,3 +1,6 @@
+import com.bmuschko.gradle.docker.tasks.image.DockerPushImage
+import org.gradle.kotlin.dsl.create
+
 /*
  *  Copyright (c) 2024 Eclipse Dataspace Connector Project
  *
@@ -172,6 +175,16 @@ val dockerTask = tasks.register("dockerize", DockerBuildImage::class) {
         println("Docker image built successfully")
     }
 }
+
+
+val dockerPushTask: DockerPushImage = tasks.create("dockerPush", DockerPushImage::class) {
+    group = "distribution"
+    description = "Push Docker image to registry"
+    images.add("${dockerRegistry}/${imageName}/${project.name}:${dockerImageTag}")
+    images.add("${dockerRegistry}/${imageName}/${project.name}:latest")
+}
+// Ensure push happens after build
+dockerPushTask.dependsOn(dockerTask)
 
 // Aggregate task for complete build
 tasks.register("buildAll") {
