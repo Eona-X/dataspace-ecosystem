@@ -156,7 +156,8 @@ val dockerTask = tasks.register("dockerize", DockerBuildImage::class) {
     images.add(imageName)
     
     if (dockerRegistry.isNotEmpty()) {
-        images.add("$dockerRegistry/$imageName")
+        images.add("$dockerRegistry/$dockerImageName$dockerImageTag")
+        images.add("$dockerRegistry/$dockerImageName:latest")
     }
     
     // specify platform with the -Dplatform flag:
