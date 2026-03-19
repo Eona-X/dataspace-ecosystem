@@ -68,6 +68,8 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         String authClientId = context.getConfig().getString(KafkaProxyConfig.AUTH_CLIENT_ID, "");
         String authStaticUsers = context.getConfig().getString(KafkaProxyConfig.AUTH_STATIC_USERS, "");
         String authImage = context.getConfig().getString(KafkaProxyConfig.AUTH_IMAGE, KafkaProxyConfig.DEFAULT_AUTH_IMAGE);
+        String authImagePullSecret = context.getConfig().getString(KafkaProxyConfig.AUTH_IMAGE_PULL_SECRET,
+                KafkaProxyConfig.DEFAULT_AUTH_IMAGE_PULL_SECRET);
         
         // TLS listener configuration
         boolean tlsListenerEnabled = context.getConfig().getBoolean(KafkaProxyConfig.TLS_LISTENER_ENABLED, false);
@@ -126,6 +128,7 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
             monitor.info("  Auth Client ID: " + authClientId);
             monitor.info("  Auth Static Users: " + authStaticUsers);
             monitor.info("  Auth Plugin Image: " + authImage);
+            monitor.info("  Auth Plugin Image Pull Secret: " + authImagePullSecret);
         }
         monitor.info("  TLS Listener Enabled: " + tlsListenerEnabled);
         if (tlsListenerEnabled) {
@@ -145,9 +148,10 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         // Initialize services
         var kubernetesClient = new DefaultKubernetesClient();
         var vaultService = new VaultService(vaultAddr, vaultToken, vaultFolder);
-        var deployerService = new KubernetesDeployerService(kubernetesClient, proxyNamespace, proxyImage, 
-                vaultService, participantId, serviceClusterIp, baseProxyPort, authEnabled, authMechanism, authClientId, authStaticUsers, authImage,
-                tlsListenerEnabled, tlsListenerCertSecret, tlsListenerKeySecret, tlsListenerCaSecret, additionalPodLabels, maxBrokerPorts);
+        var deployerService = new KubernetesDeployerService(kubernetesClient, proxyNamespace, proxyImage, vaultService,
+                participantId, serviceClusterIp, baseProxyPort, authEnabled, authMechanism, authClientId,
+                authStaticUsers, authImage, authImagePullSecret, tlsListenerEnabled, tlsListenerCertSecret,
+                tlsListenerKeySecret, tlsListenerCaSecret, additionalPodLabels, maxBrokerPorts);
         var checkerService = new KubernetesCheckerService(kubernetesClient, proxyNamespace, participantId);
         
         var automaticQueueService = new AutomaticDiscoveryQueueService(sharedDir, vaultService, checkerService);

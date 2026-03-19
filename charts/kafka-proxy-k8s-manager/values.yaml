@@ -106,6 +106,8 @@ kafkaProxy:
       staticUsers: ""
       # Custom image with plugins
       image: ""
+      # Custom image pull secret
+      imagePullSecret: ""
 
     # OIDC Configuration (Keycloak/Generic OIDC)
     # These values populate the INFO_*, VERIFIER_*, and PROVIDER_* environment variables

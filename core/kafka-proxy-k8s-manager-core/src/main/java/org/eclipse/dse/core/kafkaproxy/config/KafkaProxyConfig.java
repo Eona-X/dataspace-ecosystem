@@ -42,6 +42,7 @@ public class KafkaProxyConfig {
     public static final String AUTH_CLIENT_ID = "kafka.proxy.auth.client.id";
     public static final String AUTH_STATIC_USERS = "kafka.proxy.auth.static.users";  // Only for PLAIN mechanism
     public static final String AUTH_IMAGE = "kafka.proxy.auth.image";
+    public static final String AUTH_IMAGE_PULL_SECRET = "kafka.proxy.auth.imagePullSecret";
     
     // TLS listener configuration
     public static final String TLS_LISTENER_ENABLED = "kafka.proxy.tls.listener.enabled";
@@ -61,6 +62,7 @@ public class KafkaProxyConfig {
     public static final String DEFAULT_PROXY_NAMESPACE = "default";
     public static final String DEFAULT_PROXY_IMAGE = "grepplabs/kafka-proxy:0.4.2";
     public static final String DEFAULT_AUTH_IMAGE = "kafka-proxy-oidc-auth:latest";
+    public static final String DEFAULT_AUTH_IMAGE_PULL_SECRET = "";
     public static final String DEFAULT_AUTH_MECHANISM = "PLAIN";  // PLAIN (JWT-over-PLAIN) or OAUTHBEARER (proper OAuth2)
     public static final String DEFAULT_BASE_PROXY_PORT = "30003";
     public static final int MAX_ALLOWED_BROKER_PORTS = 20;

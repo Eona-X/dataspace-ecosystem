@@ -16,6 +16,7 @@ package org.eclipse.dse.core.kafkaproxy.service;
 import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
 import io.fabric8.kubernetes.api.model.EnvVarBuilder;
 import io.fabric8.kubernetes.api.model.IntOrString;
+import io.fabric8.kubernetes.api.model.LocalObjectReferenceBuilder;
 import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
@@ -57,6 +58,7 @@ public class KubernetesDeployerService {
     private final String authClientId;
     private final String authStaticUsers; // Only used for a PLAIN mechanism
     private final String authImage;
+    private final String authImagePullSecret;
 
     // TLS listener configuration
     private final boolean tlsListenerEnabled;
@@ -73,9 +75,9 @@ public class KubernetesDeployerService {
     public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage,
             VaultService vaultService, String participantId, String clusterIp, int baseProxyPort, boolean authEnabled,
             String authMechanism, String authClientId, String authStaticUsers, String authImage,
-            boolean tlsListenerEnabled, String tlsListenerCertSecret,
-            String tlsListenerKeySecret, String tlsListenerCaSecret,
-            Map<String, String> additionalPodLabels, int maxBrokerPorts) {
+            String authImagePullSecret, boolean tlsListenerEnabled, String tlsListenerCertSecret,
+            String tlsListenerKeySecret, String tlsListenerCaSecret, Map<String, String> additionalPodLabels,
+            int maxBrokerPorts) {
         this.kubernetesClient = kubernetesClient;
         this.proxyNamespace = proxyNamespace;
         this.proxyImage = proxyImage;
@@ -88,6 +90,7 @@ public class KubernetesDeployerService {
         this.authClientId = authClientId;
         this.authStaticUsers = authStaticUsers;
         this.authImage = authImage;
+        this.authImagePullSecret = authImagePullSecret;
         this.tlsListenerEnabled = tlsListenerEnabled;
         this.tlsListenerCertSecret = tlsListenerCertSecret;
         this.tlsListenerKeySecret = tlsListenerKeySecret;
@@ -373,6 +376,7 @@ public class KubernetesDeployerService {
                 .withLabels(labels)
                 .endMetadata()
                 .withNewSpec()
+                .withImagePullSecrets(new LocalObjectReferenceBuilder().withName(authImagePullSecret).build())
                 .addNewContainer()
                 .withName("kafka-proxy")
                 .withImage(authEnabled && authImage != null ? authImage : proxyImage)

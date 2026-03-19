@@ -56,6 +56,9 @@ data:
     {{- if .Values.kafkaProxy.manager.auth.image }}
     kafka.proxy.auth.image={{ .Values.kafkaProxy.manager.auth.image }}
     {{- end }}
+    {{- if .Values.kafkaProxy.manager.auth.imagePullSecret }}
+    kafka.proxy.auth.imagePullSecret={{ .Values.kafkaProxy.manager.auth.imagePullSecret }}
+    {{- end }}
     
     # TLS Listener Configuration
     kafka.proxy.tls.listener.enabled={{ .Values.kafkaProxy.manager.tls.listener.enabled }}
