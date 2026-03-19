@@ -149,6 +149,11 @@ public class VaultService {
         // Extract username and password from JAAS config if available (for SASL PLAIN)
         String username = extractUsernameFromJaas(saslJaasConfig);
         String password = extractPasswordFromJaas(saslJaasConfig);
+
+        securityProtocol = securityProtocol != null ? securityProtocol : "PLAINTEXT";
+        saslMechanism = securityProtocol.startsWith("SASL")
+                ? (saslMechanism != null ? saslMechanism : "PLAIN")
+                : "NONE";
         
         // Extract OAuth2 credentials from JAAS config if available (for OAUTHBEARER)
         String oauth2ClientId = extractOauth2ClientIdFromJaas(saslJaasConfig);
@@ -160,8 +165,8 @@ public class VaultService {
                 bootstrapServers != null ? bootstrapServers : "",
                 username,
                 password,
-                securityProtocol != null ? securityProtocol : "SASL_SSL",
-                saslMechanism != null ? saslMechanism : "PLAIN",
+                securityProtocol,
+                saslMechanism,
                 null, // tls_client_cert - default to one-way TLS
                 null, // tls_client_key - default to one-way TLS
                 null, // tls_ca_secret - default to "kafka-tls-ca"
