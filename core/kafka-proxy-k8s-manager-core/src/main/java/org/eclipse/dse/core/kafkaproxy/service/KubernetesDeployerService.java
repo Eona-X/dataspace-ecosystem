@@ -671,9 +671,13 @@ public class KubernetesDeployerService {
 
         // Use the three-parameter format: source, listen, advertised
         // The advertised address should be the standardized service name
+        String advertisedAddress = serviceName;
+        if (proxyNamespace != null && !proxyNamespace.isEmpty()) {
+            advertisedAddress = format("%s.%s", serviceName, proxyNamespace);
+        }
         args.add(format("--bootstrap-server-mapping=%s,0.0.0.0:%d,%s:%d",
-                cleanBootstrapServers, port, serviceName, port));
-        args.add(format("--dynamic-advertised-listener=%s:%d", serviceName, port));
+                cleanBootstrapServers, port, advertisedAddress, port));
+        args.add(format("--dynamic-advertised-listener=%s:%d", advertisedAddress, port));
         args.add(format("--dynamic-sequential-min-port=%d", port + 1));
 
         // Add SASL configuration based on a mechanism
