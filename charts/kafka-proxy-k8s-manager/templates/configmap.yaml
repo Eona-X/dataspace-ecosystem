@@ -85,3 +85,11 @@ data:
     {{- if .Values.kafkaProxy.manager.edc.runtimeId }}
     edc.runtime.id={{ .Values.kafkaProxy.manager.edc.runtimeId }}
     {{- end }}
+
+    # Kafka Proxy Service Configuration
+    {{- if .Values.kafkaProxy.proxy.service.enabled }}
+    kafka.proxy.service.enabled={{ .Values.kafkaProxy.proxy.service.enabled }}
+    kafka.proxy.service.type={{ .Values.kafkaProxy.proxy.service.type }}
+    kafka.proxy.service.annotations={{ .Values.kafkaProxy.proxy.service.annotations | toYaml | quote | replace "\n" "," }}
+    kafka.proxy.service.labels={{ .Values.kafkaProxy.proxy.service.labels | toYaml | quote | replace "\n" "," }}
+    {{- end }}

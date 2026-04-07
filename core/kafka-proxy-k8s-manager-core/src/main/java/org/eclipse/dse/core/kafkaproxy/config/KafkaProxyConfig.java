@@ -71,6 +71,11 @@ public class KafkaProxyConfig {
     // Discovery defaults (always enabled)
     public static final String DEFAULT_DISCOVERY_INTERVAL = "10";  // in seconds
     public static final String DEFAULT_EDR_PREFIX = "edr--";
+
+    public static final String SERVICE_ENABLED = "kafka.proxy.service.enabled";
+    public static final String SERVICE_TYPE = "kafka.proxy.service.type";
+    public static final String SERVICE_ANNOTATIONS = "kafka.proxy.service.annotations";
+    public static final String SERVICE_LABELS = "kafka.proxy.service.labels";
     
     private KafkaProxyConfig() {
         // Utility class

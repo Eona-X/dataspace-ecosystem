@@ -154,6 +154,12 @@ kafkaProxy:
         tenantId: ""
         clientSecret: ""
         name: ""
+  proxy:
+    service:
+      enabled: false
+      type: LoadBalancer
+      annotations: {}
+      labels: {}
 
 # Service configuration
 service:

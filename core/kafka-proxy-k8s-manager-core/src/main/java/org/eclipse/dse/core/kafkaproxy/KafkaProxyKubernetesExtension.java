@@ -110,6 +110,14 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         String podLabelsConfig = context.getConfig().getString(KafkaProxyConfig.POD_LABELS, "");
         java.util.Map<String, String> additionalPodLabels = parsePodLabels(podLabelsConfig);
         
+        // Service configuration
+        boolean serviceEnabled = context.getConfig().getBoolean(KafkaProxyConfig.SERVICE_ENABLED, false);
+        String serviceType = context.getConfig().getString(KafkaProxyConfig.SERVICE_TYPE, "ClusterIP");
+        String serviceAnnotations = context.getConfig().getString(KafkaProxyConfig.SERVICE_ANNOTATIONS, "");
+        java.util.Map<String, String> serviceAnnotationsMap = parseAnnotations(serviceAnnotations);
+        String serviceLabels = context.getConfig().getString(KafkaProxyConfig.SERVICE_LABELS, "");
+        java.util.Map<String, String> serviceLabelsMap = parsePodLabels(serviceLabels);
+
         int discoveryInterval = context.getConfig().getInteger(KafkaProxyConfig.DISCOVERY_INTERVAL, Integer.parseInt(KafkaProxyConfig.DEFAULT_DISCOVERY_INTERVAL));
         
         monitor.info("Initializing Kafka Proxy Kubernetes Manager");
@@ -144,6 +152,16 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         if (!additionalPodLabels.isEmpty()) {
             monitor.info("  Additional Pod Labels: " + additionalPodLabels);
         }
+        monitor.info("  Service Enabled: " + serviceEnabled);
+        if (serviceEnabled) {
+            monitor.info("  Service Type: " + serviceType);
+            if (!serviceAnnotationsMap.isEmpty()) {
+                monitor.info("  Service Annotations: " + serviceAnnotationsMap);
+            }
+            if (!serviceLabelsMap.isEmpty()) {
+                monitor.info("  Service Labels: " + serviceLabelsMap);
+            }
+        }
         
         // Initialize services
         var kubernetesClient = new DefaultKubernetesClient();
@@ -151,7 +169,8 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         var deployerService = new KubernetesDeployerService(kubernetesClient, proxyNamespace, proxyImage, vaultService,
                 participantId, serviceClusterIp, baseProxyPort, authEnabled, authMechanism, authClientId,
                 authStaticUsers, authImage, authImagePullSecret, tlsListenerEnabled, tlsListenerCertSecret,
-                tlsListenerKeySecret, tlsListenerCaSecret, additionalPodLabels, maxBrokerPorts);
+                tlsListenerKeySecret, tlsListenerCaSecret, additionalPodLabels, maxBrokerPorts, serviceType,
+                serviceAnnotationsMap, serviceLabelsMap);
         var checkerService = new KubernetesCheckerService(kubernetesClient, proxyNamespace, participantId);
         
         var automaticQueueService = new AutomaticDiscoveryQueueService(sharedDir, vaultService, checkerService);
@@ -229,5 +248,58 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         }
         
         return labels;
+    }
+    
+    /**
+     * Parses annotations from a YAML string or comma-separated key=value pairs
+     * Example YAML: "service.beta.kubernetes.io/aws-load-balancer-type: nlb"
+     * Example CSV: "service.beta.kubernetes.io/aws-load-balancer-type=nlb,service.beta.kubernetes.io/aws-load-balancer-internal=true"
+     */
+    private java.util.Map<String, String> parseAnnotations(String annotationsConfig) {
+        java.util.Map<String, String> annotations = new java.util.HashMap<>();
+        
+        if (annotationsConfig == null || annotationsConfig.trim().isEmpty()) {
+            return annotations;
+        }
+        
+        // Try YAML format first (if contains colons)
+        if (annotationsConfig.contains(":")) {
+            String[] lines = annotationsConfig.split("[\n,]");
+            for (String line : lines) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+                
+                String[] keyValue = line.split(":", 2);
+                if (keyValue.length == 2) {
+                    String key = keyValue[0].trim();
+                    String value = keyValue[1].trim();
+                    if (!key.isEmpty() && !value.isEmpty()) {
+                        annotations.put(key, value);
+                    }
+                }
+            }
+        } else {
+            // Fall back to CSV format
+            String[] pairs = annotationsConfig.split(",");
+            for (String pair : pairs) {
+                pair = pair.trim();
+                if (pair.isEmpty()) {
+                    continue;
+                }
+                
+                String[] keyValue = pair.split("=", 2);
+                if (keyValue.length == 2) {
+                    String key = keyValue[0].trim();
+                    String value = keyValue[1].trim();
+                    if (!key.isEmpty() && !value.isEmpty()) {
+                        annotations.put(key, value);
+                    }
+                }
+            }
+        }
+        
+        return annotations;
     }
 }
