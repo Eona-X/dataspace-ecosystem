@@ -117,6 +117,7 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         java.util.Map<String, String> serviceAnnotationsMap = parseAnnotations(serviceAnnotations);
         String serviceLabels = context.getConfig().getString(KafkaProxyConfig.SERVICE_LABELS, "");
         java.util.Map<String, String> serviceLabelsMap = parsePodLabels(serviceLabels);
+        String serviceAddressIp = context.getConfig().getString(KafkaProxyConfig.SERVICE_IP, "0.0.0.0");
 
         int discoveryInterval = context.getConfig().getInteger(KafkaProxyConfig.DISCOVERY_INTERVAL, Integer.parseInt(KafkaProxyConfig.DEFAULT_DISCOVERY_INTERVAL));
         
@@ -155,6 +156,7 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         monitor.info("  Service Enabled: " + serviceEnabled);
         if (serviceEnabled) {
             monitor.info("  Service Type: " + serviceType);
+            monitor.info("  Service Address Ip: " + serviceAddressIp);
             if (!serviceAnnotationsMap.isEmpty()) {
                 monitor.info("  Service Annotations: " + serviceAnnotationsMap);
             }
@@ -170,7 +172,7 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
                 participantId, serviceClusterIp, baseProxyPort, authEnabled, authMechanism, authClientId,
                 authStaticUsers, authImage, authImagePullSecret, tlsListenerEnabled, tlsListenerCertSecret,
                 tlsListenerKeySecret, tlsListenerCaSecret, additionalPodLabels, maxBrokerPorts, serviceType,
-                serviceAnnotationsMap, serviceLabelsMap);
+                serviceAnnotationsMap, serviceLabelsMap, serviceAddressIp);
         var checkerService = new KubernetesCheckerService(kubernetesClient, proxyNamespace, participantId);
         
         var automaticQueueService = new AutomaticDiscoveryQueueService(sharedDir, vaultService, checkerService);
