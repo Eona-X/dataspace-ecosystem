@@ -5,8 +5,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "kafka-proxy.labels" . | nindent 4 }}
+    {{- if .Values.kafkaProxy.proxy.service.enabled }}
+    {{- toYaml .Values.kafkaProxy.proxy.service.labels | nindent 4 }}
+    {{- end }}
 spec:
-  type: {{ .Values.service.type }}
+  type: {{ .Values.kafkaProxy.proxy.service.enabled | ternary .Values.kafkaProxy.proxy.service.type .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: {{ .Values.service.targetPort }}

@@ -63,6 +63,20 @@ spec:
             {{- end }}
             - name: "JAVA_TOOL_OPTIONS"
               value: "-Djavax.net.ssl.trustStore={{ .Values.kafkaProxy.manager.certDir }}/cacerts -Djavax.net.ssl.trustStorePassword=changeit"
+            {{- if .Values.kafkaProxy.proxy.service.enabled }}
+            - name: "KAFKA_PROXY_SERVICE_ENABLED"
+              value: "true"
+            - name: "KAFKA_PROXY_SERVICE_TYPE"
+              value: {{ .Values.kafkaProxy.proxy.service.type | quote }}
+            {{- if .Values.kafkaProxy.proxy.service.annotations }}
+            - name: "KAFKA_PROXY_SERVICE_ANNOTATIONS"
+              value: {{ .Values.kafkaProxy.proxy.service.annotations | toYaml | quote }}
+            {{- end }}
+            {{- if .Values.kafkaProxy.proxy.service.labels }}
+            - name: "KAFKA_PROXY_SERVICE_LABELS"
+              value: {{ .Values.kafkaProxy.proxy.service.labels | toYaml | quote }}
+            {{- end }}
+            {{- end }}
           {{- with .Values.extraEnvFrom }}
           envFrom:
             {{- toYaml . | nindent 12 }}

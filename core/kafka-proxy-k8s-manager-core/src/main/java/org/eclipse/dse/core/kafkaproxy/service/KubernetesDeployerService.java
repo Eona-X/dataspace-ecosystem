@@ -72,12 +72,17 @@ public class KubernetesDeployerService {
     // Maximum number of broker ports to expose (for multi-broker clusters)
     private final int maxBrokerPorts;
 
+    // Service configuration
+    private final String serviceType;
+    private final Map<String, String> serviceAnnotations;
+    private final Map<String, String> serviceLabels;
+
     public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage,
             VaultService vaultService, String participantId, String clusterIp, int baseProxyPort, boolean authEnabled,
             String authMechanism, String authClientId, String authStaticUsers, String authImage,
             String authImagePullSecret, boolean tlsListenerEnabled, String tlsListenerCertSecret,
             String tlsListenerKeySecret, String tlsListenerCaSecret, Map<String, String> additionalPodLabels,
-            int maxBrokerPorts) {
+            int maxBrokerPorts, String serviceType, Map<String, String> serviceAnnotations, Map<String, String> serviceLabels) {
         this.kubernetesClient = kubernetesClient;
         this.proxyNamespace = proxyNamespace;
         this.proxyImage = proxyImage;
@@ -97,6 +102,9 @@ public class KubernetesDeployerService {
         this.tlsListenerCaSecret = tlsListenerCaSecret;
         this.additionalPodLabels = additionalPodLabels != null ? new HashMap<>(additionalPodLabels) : new HashMap<>();
         this.maxBrokerPorts = maxBrokerPorts;
+        this.serviceType = serviceType;
+        this.serviceAnnotations = serviceAnnotations != null ? new HashMap<>(serviceAnnotations) : new HashMap<>();
+        this.serviceLabels = serviceLabels != null ? new HashMap<>(serviceLabels) : new HashMap<>();
     }
 
     /**
@@ -630,6 +638,7 @@ public class KubernetesDeployerService {
         labels.put("component", "kafka-proxy");
         labels.put("managed-by", "edr-kubectl-deployer");
         labels.put("owner-participant", generateSafeParticipantId(participantId));
+        labels.putAll(serviceLabels != null && !serviceLabels.isEmpty() ? serviceLabels : new HashMap<>());
 
         // Use fixed port
         int port = generateConsistentPort(edrKey);
@@ -638,12 +647,13 @@ public class KubernetesDeployerService {
                 .withNewMetadata()
                 .withName(serviceName) // Use standardized service name
                 .withNamespace(proxyNamespace)
+                .withAnnotations(serviceAnnotations != null && !serviceAnnotations.isEmpty() ? serviceAnnotations : new HashMap<>())
                 .withLabels(labels)
                 .endMetadata()
                 .withNewSpec()
                 .withSelector(Map.of("app", proxyName)) // Selector points to deployment
                 .withPorts(createServicePorts(port))
-                .withType("ClusterIP")
+                .withType(serviceType != null ? serviceType : "ClusterIP")
                 .endSpec();
 
         // Set fixed ClusterIP if configured
