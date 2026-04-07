@@ -77,12 +77,15 @@ public class KubernetesDeployerService {
     private final Map<String, String> serviceAnnotations;
     private final Map<String, String> serviceLabels;
 
+    private final String serviceAddressIp;
+
     public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage,
             VaultService vaultService, String participantId, String clusterIp, int baseProxyPort, boolean authEnabled,
             String authMechanism, String authClientId, String authStaticUsers, String authImage,
             String authImagePullSecret, boolean tlsListenerEnabled, String tlsListenerCertSecret,
             String tlsListenerKeySecret, String tlsListenerCaSecret, Map<String, String> additionalPodLabels,
-            int maxBrokerPorts, String serviceType, Map<String, String> serviceAnnotations, Map<String, String> serviceLabels) {
+            int maxBrokerPorts, String serviceType, Map<String, String> serviceAnnotations, Map<String, String> serviceLabels,
+            String serviceAddressIp) {
         this.kubernetesClient = kubernetesClient;
         this.proxyNamespace = proxyNamespace;
         this.proxyImage = proxyImage;
@@ -105,6 +108,7 @@ public class KubernetesDeployerService {
         this.serviceType = serviceType;
         this.serviceAnnotations = serviceAnnotations != null ? new HashMap<>(serviceAnnotations) : new HashMap<>();
         this.serviceLabels = serviceLabels != null ? new HashMap<>(serviceLabels) : new HashMap<>();
+        this.serviceAddressIp = serviceAddressIp;
     }
 
     /**
@@ -687,7 +691,7 @@ public class KubernetesDeployerService {
         }
         args.add(format("--bootstrap-server-mapping=%s,0.0.0.0:%d,%s:%d",
                 cleanBootstrapServers, port, advertisedAddress, port));
-        args.add(format("--dynamic-advertised-listener=%s:%d", advertisedAddress, port));
+        args.add(format("--dynamic-advertised-listener=%s:%d,%s:%d", advertisedAddress, port, serviceAddressIp, port));
         args.add(format("--dynamic-sequential-min-port=%d", port + 1));
 
         // Add SASL configuration based on a mechanism

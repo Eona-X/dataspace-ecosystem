@@ -90,6 +90,7 @@ data:
     {{- if .Values.kafkaProxy.proxy.service.enabled }}
     kafka.proxy.service.enabled={{ .Values.kafkaProxy.proxy.service.enabled }}
     kafka.proxy.service.type={{ .Values.kafkaProxy.proxy.service.type }}
+    kafka.proxy.service.ip={{ .Values.kafkaProxy.proxy.service.ip }}
     kafka.proxy.service.annotations={{ .Values.kafkaProxy.proxy.service.annotations | toYaml | quote | replace "\n" "," }}
     kafka.proxy.service.labels={{ .Values.kafkaProxy.proxy.service.labels | toYaml | quote | replace "\n" "," }}
     {{- end }}
