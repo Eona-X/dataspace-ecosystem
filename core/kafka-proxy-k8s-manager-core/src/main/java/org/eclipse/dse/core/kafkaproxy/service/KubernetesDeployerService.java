@@ -340,13 +340,6 @@ public class KubernetesDeployerService {
             }
         });
 
-        // Ensure KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP is set for named listeners
-        if (!inheritedEnv.containsKey("KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP")) {
-            String protocol = "PLAINTEXT";
-            inheritedEnv.put("KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP",
-                    format("INTERNAL:%s,EXTERNAL:%s", protocol, protocol));
-        }
-
         // Required standard Kubernetes labels for admission webhook
         labels.put("app.kubernetes.io/name", "kafka-proxy");
         labels.put("app.kubernetes.io/instance", proxyName);
@@ -696,9 +689,16 @@ public class KubernetesDeployerService {
         if (proxyNamespace != null && !proxyNamespace.isEmpty()) {
             advertisedAddress = format("%s.%s", serviceName, proxyNamespace);
         }
+
+        // Use serviceAddressIp if provided (for external access), otherwise use internal DNS
+        String finalAdvertisedAddress = (serviceAddressIp != null && !serviceAddressIp.isEmpty())
+                ? serviceAddressIp : advertisedAddress;
+
         args.add(format("--bootstrap-server-mapping=%s,0.0.0.0:%d,%s:%d",
-                cleanBootstrapServers, port, advertisedAddress, port));
-        args.add(format("--dynamic-advertised-listener=INTERNAL://%s:%d,EXTERNAL://%s:%d", advertisedAddress, port, serviceAddressIp, port));
+                cleanBootstrapServers, port, finalAdvertisedAddress, port));
+
+        // Configure advertised address for dynamic listeners (brokers)
+        args.add(format("--dynamic-advertised-listener=%s", finalAdvertisedAddress));
 
         args.add(format("--dynamic-sequential-min-port=%d", port + 1));
 
