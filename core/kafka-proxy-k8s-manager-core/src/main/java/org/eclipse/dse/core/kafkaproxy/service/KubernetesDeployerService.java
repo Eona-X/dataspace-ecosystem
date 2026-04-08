@@ -698,14 +698,7 @@ public class KubernetesDeployerService {
         }
         args.add(format("--bootstrap-server-mapping=%s,0.0.0.0:%d,%s:%d",
                 cleanBootstrapServers, port, advertisedAddress, port));
-        args.add("--listener-names=INTERNAL,EXTERNAL");
         args.add(format("--dynamic-advertised-listener=INTERNAL://%s:%d,EXTERNAL://%s:%d", advertisedAddress, port, serviceAddressIp, port));
-        
-        // Add listener-names to mapping if needed by the proxy
-        // (Some versions of the proxy may require explicit listener protocol arguments)
-        String protocol = "PLAINTEXT";
-        args.add(format("--listener-protocol=INTERNAL:%s", protocol));
-        args.add(format("--listener-protocol=EXTERNAL:%s", protocol));
 
         args.add(format("--dynamic-sequential-min-port=%d", port + 1));
 
