@@ -698,7 +698,7 @@ public class KubernetesDeployerService {
                 cleanBootstrapServers, port, finalAdvertisedAddress, port));
 
         // Configure advertised address for dynamic listeners (brokers)
-        args.add(format("--dynamic-advertised-listener=%s", finalAdvertisedAddress));
+        args.add(format("--dynamic-advertised-listener=%s:%d", finalAdvertisedAddress, port));
 
         args.add(format("--dynamic-sequential-min-port=%d", port + 1));
 
