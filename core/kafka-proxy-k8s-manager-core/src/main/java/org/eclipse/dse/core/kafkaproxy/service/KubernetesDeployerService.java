@@ -702,12 +702,7 @@ public class KubernetesDeployerService {
 
         args.add(format("--dynamic-sequential-min-port=%d", port + 1));
 
-        // Add SASL configuration based on a mechanism
-        // Skip standard SASL if we are using Gateway authentication for inter-proxy
-        // communication
-        boolean useGatewayClientAuth = authEnabled;
-
-        if ("PLAIN".equals(properties.getSaslMechanism()) && !useGatewayClientAuth) {
+        if ("PLAIN".equals(properties.getSaslMechanism())) {
             log.info("SASL PLAIN authentication enabled");
             // SASL PLAIN authentication
             args.add("--sasl-enable");
@@ -717,8 +712,7 @@ public class KubernetesDeployerService {
             args.add("--sasl-password=$(SASL_PASSWORD)");
 
             LOGGER.info("Adding SASL PLAIN authentication with credentials from secret");
-        } else if ("OAUTHBEARER".equals(properties.getSaslMechanism()) && properties.hasOauth2Credentials()
-                && !useGatewayClientAuth) {
+        } else if ("OAUTHBEARER".equals(properties.getSaslMechanism()) && properties.hasOauth2Credentials()) {
             log.info("OAuth2/OIDC authentication enabled");
             // OAuth2/OIDC authentication using SASL plugin with oidc-token-provider
             // This uses standard Kafka SASL OAUTHBEARER protocol (not gateway auth)
