@@ -16,6 +16,9 @@ type Provider struct {
 	ClientSecret string
 	Scope        string
 	Debug        bool
+	HTTPClient   interface {
+		PostForm(url string, data url.Values) (resp *http.Response, err error)
+	}
 
 	mu          sync.Mutex
 	cachedToken string
@@ -44,7 +47,12 @@ func (p *Provider) GetAccessToken(ctx context.Context) (string, error) {
 	data.Set("client_secret", p.ClientSecret)
 	data.Set("scope", p.Scope)
 
-	resp, err := http.PostForm(p.TokenURL, data)
+	client := p.HTTPClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	resp, err := client.PostForm(p.TokenURL, data)
 	if err != nil {
 		return "", err
 	}
