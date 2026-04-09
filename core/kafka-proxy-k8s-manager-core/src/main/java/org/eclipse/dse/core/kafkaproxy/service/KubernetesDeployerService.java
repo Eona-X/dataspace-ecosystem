@@ -798,18 +798,6 @@ public class KubernetesDeployerService {
                 }
                 LOGGER.info(format("Adding PLAIN incoming auth with client-id: %s, static-users: %s", authClientId, authStaticUsers != null ? "enabled" : "disabled"));
             }
-
-            // 2. OUTGOING (Consumer Proxy -> Provider Proxy)
-            args.add("--sasl-enable");
-            args.add("--sasl-plugin-enable");
-            args.add("--sasl-plugin-mechanism=OAUTHBEARER");
-            args.add("--sasl-plugin-command=/usr/local/bin/oidc-token-provider");
-
-            // On passe les paramètres OIDC pour que le proxy récupère son propre token
-            args.add("--sasl-plugin-param=--client-id=$(PROVIDER_CLIENT_ID)");
-            args.add("--sasl-plugin-param=--client-secret=$(PROVIDER_CLIENT_SECRET)");
-            args.add("--sasl-plugin-param=--token-url=$(PROVIDER_TOKEN_URL)");
-            LOGGER.info("Adding OIDC Gateway Client auth for Proxy-to-Proxy communication");
         }
 
         // Add TLS listener configuration if enabled
