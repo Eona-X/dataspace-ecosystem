@@ -8,4 +8,4 @@ echo $DOCKER_AUTH_CONFIG_DEV > ./gradle/config.json
           -PregistryHost=${REGISTRY_HOST} \
           -PregistryNs=eona-x/dse \
           -Pdocker.registry=${REGISTRY_HOST}/eona-x/dse \
-          -Pdocker.image.tag=0.3.1
+          -Pdocker.image.tag=0.3.2
