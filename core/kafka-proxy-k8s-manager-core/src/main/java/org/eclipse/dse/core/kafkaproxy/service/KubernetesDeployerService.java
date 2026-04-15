@@ -320,7 +320,7 @@ public class KubernetesDeployerService {
                 .replace("SASL_PLAINTEXT://", "")
                 .replace("SASL_SSL://", "");
 
-        boolean needsTls = properties.isTlsEnabled();
+        boolean needsTls = properties.isTlsEnabled() || tlsListenerEnabled;
 
         LOGGER.info(format("Creating deployment for %s - TLS: %s, Protocol: %s",
                 proxyName, needsTls, properties.getSecurityProtocol()));
