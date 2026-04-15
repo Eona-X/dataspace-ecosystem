@@ -187,7 +187,7 @@ subprojects {
                 .dependsOn(downloadOtel)
 
             // Only create dockerPushTask if not running locally (registryHost != localhost)
-            if (registryHost != "localhost") {
+            if (registryHostForPush != "localhost") {
                 val dockerPushTask: DockerPushImage = tasks.create("dockerPush", DockerPushImage::class) {
                     group = "distribution"
                     description = "Push Docker image to registry"
