@@ -186,12 +186,18 @@ subprojects {
             dockerTask.dependsOn(tasks.named(ShadowJavaPlugin.SHADOW_JAR_TASK_NAME))
                 .dependsOn(downloadOtel)
 
-            // Only create dockerPushTask if not running locally (registryHost != localhost)
+            // Only create dockerPushTask if not running locally
+            val registryHostForPush = project.findProperty("registryHost")?.toString() ?: "localhost"
             if (registryHostForPush != "localhost") {
                 val dockerPushTask: DockerPushImage = tasks.create("dockerPush", DockerPushImage::class) {
                     group = "distribution"
                     description = "Push Docker image to registry"
                     project.plugins.apply("com.bmuschko.docker-remote-api")
+                    
+                    val imageTag = project.findProperty("imageTag")?.toString() ?: "latest"
+                    val registryHost = project.findProperty("registryHost")?.toString() ?: "localhost"
+                    val registryNs = project.findProperty("registryNs")?.toString() ?: "local"
+                    
                     images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
                     images.add("${registryHost}/${registryNs}/${project.name}:latest")
                 }
