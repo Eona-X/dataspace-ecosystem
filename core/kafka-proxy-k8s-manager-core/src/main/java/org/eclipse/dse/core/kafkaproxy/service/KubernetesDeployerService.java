@@ -77,7 +77,7 @@ public class KubernetesDeployerService {
     private final Map<String, String> serviceAnnotations;
     private final Map<String, String> serviceLabels;
 
-    private final String serviceAddressIp;
+    private final String serviceFqdnAddress;
 
     public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage,
             VaultService vaultService, String participantId, String clusterIp, int baseProxyPort, boolean authEnabled,
@@ -85,7 +85,7 @@ public class KubernetesDeployerService {
             String authImagePullSecret, boolean tlsListenerEnabled, String tlsListenerCertSecret,
             String tlsListenerKeySecret, String tlsListenerCaSecret, Map<String, String> additionalPodLabels,
             int maxBrokerPorts, String serviceType, Map<String, String> serviceAnnotations, Map<String, String> serviceLabels,
-            String serviceAddressIp) {
+            String serviceFqdnAddress) {
         this.kubernetesClient = kubernetesClient;
         this.proxyNamespace = proxyNamespace;
         this.proxyImage = proxyImage;
@@ -108,7 +108,7 @@ public class KubernetesDeployerService {
         this.serviceType = serviceType;
         this.serviceAnnotations = serviceAnnotations != null ? new HashMap<>(serviceAnnotations) : new HashMap<>();
         this.serviceLabels = serviceLabels != null ? new HashMap<>(serviceLabels) : new HashMap<>();
-        this.serviceAddressIp = serviceAddressIp;
+        this.serviceFqdnAddress = serviceFqdnAddress;
     }
 
     /**
@@ -691,8 +691,8 @@ public class KubernetesDeployerService {
         }
 
         // Use serviceAddressIp if provided (for external access), otherwise use internal DNS
-        String finalAdvertisedAddress = (serviceAddressIp != null && !serviceAddressIp.isEmpty())
-                ? serviceAddressIp : advertisedAddress;
+        String finalAdvertisedAddress = (serviceFqdnAddress != null && !serviceFqdnAddress.isEmpty())
+                ? serviceFqdnAddress : advertisedAddress;
 
         args.add(format("--bootstrap-server-mapping=%s,0.0.0.0:%d,%s:%d",
                 cleanBootstrapServers, port, finalAdvertisedAddress, port));

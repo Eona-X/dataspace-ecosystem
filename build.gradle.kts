@@ -166,12 +166,13 @@ subprojects {
                 dependsOn(podmanTask)
             }
             
-            val imageTag = project.findProperty("imageTag")?.toString() ?: "imageTag"
-            val registryHost = project.findProperty("registryHost")?.toString() ?: "registryHost"
-            val registryNs = project.findProperty("registryNs")?.toString() ?: "registryNs"
-
             val dockerTask: DockerBuildImage = tasks.create("dockerize", DockerBuildImage::class) {
                 project.plugins.apply("com.bmuschko.docker-remote-api")
+                
+                val imageTag = project.findProperty("imageTag")?.toString() ?: "latest"
+                val registryHost = project.findProperty("registryHost")?.toString() ?: "localhost"
+                val registryNs = project.findProperty("registryNs")?.toString() ?: "local"
+                
                 images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
                 images.add("${registryHost}/${registryNs}/${project.name}:latest")
                 // specify platform with the -Dplatform flag:
@@ -185,17 +186,18 @@ subprojects {
             dockerTask.dependsOn(tasks.named(ShadowJavaPlugin.SHADOW_JAR_TASK_NAME))
                 .dependsOn(downloadOtel)
 
-
-
-            val dockerPushTask: DockerPushImage = tasks.create("dockerPush", DockerPushImage::class) {
-                group = "distribution"
-                description = "Push Docker image to registry"
-                project.plugins.apply("com.bmuschko.docker-remote-api")
-                images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
-                images.add("${registryHost}/${registryNs}/${project.name}:latest")
+            // Only create dockerPushTask if not running locally (registryHost != localhost)
+            if (registryHost != "localhost") {
+                val dockerPushTask: DockerPushImage = tasks.create("dockerPush", DockerPushImage::class) {
+                    group = "distribution"
+                    description = "Push Docker image to registry"
+                    project.plugins.apply("com.bmuschko.docker-remote-api")
+                    images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
+                    images.add("${registryHost}/${registryNs}/${project.name}:latest")
+                }
+                // Ensure push happens after build
+                dockerPushTask.dependsOn(dockerTask)
             }
-            // Ensure push happens after build
-            dockerPushTask.dependsOn(dockerTask)
                 
 
         }

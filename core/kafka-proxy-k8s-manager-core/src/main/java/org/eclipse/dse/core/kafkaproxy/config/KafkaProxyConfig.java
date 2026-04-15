@@ -76,7 +76,7 @@ public class KafkaProxyConfig {
     public static final String SERVICE_TYPE = "kafka.proxy.service.type";
     public static final String SERVICE_ANNOTATIONS = "kafka.proxy.service.annotations";
     public static final String SERVICE_LABELS = "kafka.proxy.service.labels";
-    public static final String SERVICE_IP = "kafka.proxy.service.ip";
+    public static final String SERVICE_FQDN = "kafka.proxy.service.fqdn";
     
     private KafkaProxyConfig() {
         // Utility class
