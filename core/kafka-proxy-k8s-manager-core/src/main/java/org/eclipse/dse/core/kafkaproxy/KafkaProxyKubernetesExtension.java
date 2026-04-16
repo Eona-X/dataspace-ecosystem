@@ -24,6 +24,7 @@ import org.eclipse.edc.runtime.metamodel.annotation.Provider;
 import org.eclipse.edc.spi.system.ServiceExtension;
 import org.eclipse.edc.spi.system.ServiceExtensionContext;
 
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -225,30 +226,15 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
      * Parses pod labels from a comma-separated string of key=value pairs
      * Example: "env=prod,team=platform,version=1.0"
      */
-    private java.util.Map<String, String> parsePodLabels(String podLabelsConfig) {
+    java.util.Map<String, String> parsePodLabels(String podLabelsConfig) {
         java.util.Map<String, String> labels = new java.util.HashMap<>();
         
         if (podLabelsConfig == null || podLabelsConfig.trim().isEmpty()) {
             return labels;
         }
-        
-        String[] pairs = podLabelsConfig.split(",");
-        for (String pair : pairs) {
-            pair = pair.trim();
-            if (pair.isEmpty()) {
-                continue;
-            }
-            
-            String[] keyValue = pair.split("=", 2);
-            if (keyValue.length == 2) {
-                String key = keyValue[0].trim();
-                String value = keyValue[1].trim();
-                if (!key.isEmpty() && !value.isEmpty()) {
-                    labels.put(key, value);
-                }
-            }
-        }
-        
+
+        parseCsv(podLabelsConfig, labels);
+
         return labels;
     }
     
@@ -257,7 +243,7 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
      * Example YAML: "service.beta.kubernetes.io/aws-load-balancer-type: nlb"
      * Example CSV: "service.beta.kubernetes.io/aws-load-balancer-type=nlb,service.beta.kubernetes.io/aws-load-balancer-internal=true"
      */
-    private java.util.Map<String, String> parseAnnotations(String annotationsConfig) {
+    java.util.Map<String, String> parseAnnotations(String annotationsConfig) {
         java.util.Map<String, String> annotations = new java.util.HashMap<>();
         
         if (annotationsConfig == null || annotationsConfig.trim().isEmpty()) {
@@ -274,34 +260,59 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
                 }
                 
                 String[] keyValue = line.split(":", 2);
-                if (keyValue.length == 2) {
-                    String key = keyValue[0].trim();
-                    String value = keyValue[1].trim();
-                    if (!key.isEmpty() && !value.isEmpty()) {
-                        annotations.put(key, value);
-                    }
-                }
+                processKeyValuePair(annotations, keyValue);
             }
         } else {
             // Fall back to CSV format
-            String[] pairs = annotationsConfig.split(",");
-            for (String pair : pairs) {
-                pair = pair.trim();
-                if (pair.isEmpty()) {
-                    continue;
-                }
-                
-                String[] keyValue = pair.split("=", 2);
-                if (keyValue.length == 2) {
-                    String key = keyValue[0].trim();
-                    String value = keyValue[1].trim();
-                    if (!key.isEmpty() && !value.isEmpty()) {
-                        annotations.put(key, value);
-                    }
+            parseCsv(annotationsConfig, annotations);
+        }
+    
+        return annotations;
+    }
+
+    private void parseCsv(String config, Map<String, String> targetMap) {
+        String[] pairs = config.split(",");
+        for (String pair : pairs) {
+            pair = pair.trim();
+            if (pair.isEmpty()) {
+                continue;
+            }
+
+            String[] keyValue = pair.split("=", 2);
+            processKeyValuePair(targetMap, keyValue);
+        }
+    }
+
+    private void processKeyValuePair(Map<String, String> targetMap, String[] keyValue) {
+        if (keyValue.length == 2) {
+            String key = keyValue[0].trim();
+            String value = keyValue[1].trim();
+
+            if (!key.isEmpty() && !value.isEmpty()) {
+                if (key.startsWith("\"") && value.endsWith("\"") && !key.endsWith("\"") && !value.startsWith("\"")) {
+                    key = key.substring(1);
+                    value = value.substring(0, value.length() - 1);
+                } else if (key.startsWith("'") && value.endsWith("'") && !key.endsWith("'") && !value.startsWith("'")) {
+                    key = key.substring(1);
+                    value = value.substring(0, value.length() - 1);
                 }
             }
+
+            key = stripQuotes(key.trim());
+            value = stripQuotes(value.trim());
+            if (!key.isEmpty() && !value.isEmpty()) {
+                targetMap.put(key, value);
+            }
         }
-        
-        return annotations;
+    }
+
+    private String stripQuotes(String s) {
+        if (s == null || s.length() < 2) {
+            return s;
+        }
+        if ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'"))) {
+            return s.substring(1, s.length() - 1);
+        }
+        return s;
     }
 }
