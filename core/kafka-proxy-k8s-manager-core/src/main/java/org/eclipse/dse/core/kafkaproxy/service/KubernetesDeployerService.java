@@ -742,7 +742,7 @@ public class KubernetesDeployerService {
         // Add TLS configuration if needed
         if (properties.isTlsEnabled()) {
             args.add("--tls-enable");
-            //args.add("--tls-ca-chain-cert-file=/etc/tls/ca.crt");
+            args.add("--tls-ca-chain-cert-file=/etc/tls/ca.crt");
 
             // Check if a client certificate and key are provided for mutual TLS
             if (properties.hasMutualTls()) {
