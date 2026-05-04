@@ -8,7 +8,7 @@ var distZip = tasks.getByName("distZip")
 
 dependencies {
     runtimeOnly(project(":launchers:telemetry-service:telemetry-service-base"))
-    runtimeOnly(project(":extensions:telemetry-service:event-hub-credential-factory"))
+    runtimeOnly(project(":extensions:telemetry-service:telemetry-service-credential-jwt"))
 
     runtimeOnly(libs.edc.issuerservice.holder.store.sql)
     runtimeOnly(libs.bundles.coresql)

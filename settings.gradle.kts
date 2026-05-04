@@ -40,11 +40,12 @@ include(":extensions:federated-catalog:participant-registry-node-directory")
 include(":extensions:federated-catalog:filter")
 
 include(":extensions:telemetry-agent")
-include(":extensions:telemetry-agent:event-hub-telemetry-record-publisher")
+include(":extensions:telemetry-agent:kafka-telemetry-record-publisher")
+include(":extensions:telemetry-test-utils")
 
 include(":extensions:telemetry-service")
-include(":extensions:telemetry-service:event-hub-credential-factory")
 include(":extensions:telemetry-service:telemetry-service-credential-api")
+include(":extensions:telemetry-service:telemetry-service-credential-jwt")
 
 include(":extensions:telemetry-storage")
 include(":extensions:telemetry-storage:telemetry-storage-api")
@@ -66,46 +67,37 @@ include(":launchers")
 include(":launchers:control-plane")
 include(":launchers:control-plane:control-plane-base")
 include(":launchers:control-plane:control-plane-postgresql-hashicorpvault")
-include(":launchers:control-plane:control-plane-postgresql-azurevault")
 
 include(":launchers:data-plane")
 include(":launchers:data-plane:data-plane-base")
 include(":launchers:data-plane:data-plane-postgresql-hashicorpvault")
-include(":launchers:data-plane:data-plane-postgresql-azurevault")
 
 include(":launchers:identity-hub")
 include(":launchers:identity-hub:identity-hub-base")
 include(":launchers:identity-hub:identity-hub-postgresql-hashicorpvault")
-include(":launchers:identity-hub:identity-hub-postgresql-azurevault")
 
 include(":launchers:federated-catalog")
 include(":launchers:federated-catalog:federated-catalog-base")
 include(":launchers:federated-catalog:federated-catalog-postgresql-hashicorpvault")
-include(":launchers:federated-catalog:federated-catalog-postgresql-azurevault")
 include(":launchers:federated-catalog-filter")
 include(":launchers:federated-catalog-filter:federated-catalog-filter-base")
 include(":launchers:federated-catalog-filter:federated-catalog-filter-postgresql-hashicorpvault")
-include(":launchers:federated-catalog-filter:federated-catalog-filter-postgresql-azurevault")
 
 include(":launchers:issuer-service")
 include(":launchers:issuer-service:issuer-service-base")
 include(":launchers:issuer-service:issuer-service-postgresql-hashicorpvault")
-include(":launchers:issuer-service:issuer-service-postgresql-azurevault")
 
 include(":launchers:telemetry-service")
 include(":launchers:telemetry-service:telemetry-service-base")
-include(":launchers:telemetry-service:telemetry-service-postgresql-azurevault")
 include(":launchers:telemetry-service:telemetry-service-postgresql-hashicorpvault")
 
 include(":launchers:telemetry-agent")
 include(":launchers:telemetry-agent:telemetry-agent-base")
-include(":launchers:telemetry-agent:telemetry-agent-postgresql-azurevault")
 include(":launchers:telemetry-agent:telemetry-agent-postgresql-hashicorpvault")
 
 include(":launchers:telemetry-storage")
 include(":launchers:telemetry-storage:telemetry-storage-base")
 include(":launchers:telemetry-storage:telemetry-storage-postgresql-hashicorpvault")
-include(":launchers:telemetry-storage:telemetry-storage-postgresql-azurevault")
 include(":launchers:kafka-proxy-k8s-manager")
 include(":launchers:kafka-proxy-k8s-manager:kafka-proxy-k8s-manager-base")
 
@@ -114,7 +106,6 @@ include(":plugins")
 include(":launchers:telemetry-csv-manager")
 include(":launchers:telemetry-csv-manager:telemetry-csv-manager-base")
 include(":launchers:telemetry-csv-manager:telemetry-csv-manager-postgresql-hashicorpvault")
-include(":launchers:telemetry-csv-manager:telemetry-csv-manager-postgresql-azurevault")
 
 include(":system-tests:backend-service-provider")
 include(":system-tests:runner")
@@ -144,3 +135,5 @@ include("launchers:federated-catalog-filter:federated-catalog-filter-base")
 findProject(":launchers:federated-catalog-filter:federated-catalog-filter-base")?.name = "federated-catalog-filter-base"
 include("launchers:federated-catalog-filter:federated-catalog-filter-postgress-hashicorp")
 findProject(":launchers:federated-catalog-filter:federated-catalog-filter-postgress-hashicorp")?.name = "federated-catalog-filter-postgress-hashicorp"
+
+include("extensions:telemetry-test-utils")

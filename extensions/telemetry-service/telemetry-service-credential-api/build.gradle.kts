@@ -10,6 +10,9 @@ dependencies {
     implementation(libs.jakarta.rsApi)
     implementation(libs.edc.core.api)
     implementation(libs.edc.core.jersey)
+    implementation(libs.edc.spi.jwt)
+    implementation(libs.edc.lib.keys)
+    implementation(libs.nimbus.jwt)
 
     testImplementation(libs.edc.tests.junit.base)
     testImplementation(libs.restAssured)

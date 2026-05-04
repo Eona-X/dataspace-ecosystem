@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    implementation(libs.edc.spi.core)
+    api(libs.edc.spi.core)
     implementation(libs.jackson.datatypeJsr310)
     testImplementation(libs.edc.lib.json)
     implementation(libs.edc.lib.statemachine)

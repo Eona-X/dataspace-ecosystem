@@ -28,7 +28,7 @@ public class TelemetryServiceImpl implements TelemetryService {
     }
 
     @Override
-    public ServiceResult<TokenRepresentation> createSasToken(TokenRepresentation tokenRepresentation) {
+    public ServiceResult<TokenRepresentation> createAccessToken(TokenRepresentation tokenRepresentation) {
         var participantAgentResult = telemetryServiceTokenValidator.verify(tokenRepresentation, RequestTelemetryPolicyContext::new, telemetryPolicy.get());
         if (participantAgentResult.failed()) {
             return participantAgentResult.mapFailure();
@@ -38,7 +38,7 @@ public class TelemetryServiceImpl implements TelemetryService {
         if (accessPolicyResult.failed()) {
             return ServiceResult.unauthorized(accessPolicyResult.getFailureDetail());
         }
-        return ServiceResult.from(credentialFactory.get());
+        return ServiceResult.from(credentialFactory.create(participantAgent));
     }
 
 }

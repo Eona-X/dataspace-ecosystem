@@ -60,10 +60,10 @@ class TelemetryServiceImplTest {
 
             // Mock the credential factory to return a token
             var sasToken = mock(TokenRepresentation.class);
-            when(sasTokenFactory.get()).thenReturn(Result.success(sasToken));
+            when(sasTokenFactory.create(any())).thenReturn(Result.success(sasToken));
 
             // Call the method under test
-            var result = telemetryService.createSasToken(tokenRepresentation);
+            var result = telemetryService.createAccessToken(tokenRepresentation);
 
             // Verify the result
             assertThat(result).isSucceeded().isEqualTo(sasToken);
@@ -76,7 +76,7 @@ class TelemetryServiceImplTest {
                     .thenReturn(ServiceResult.badRequest("Invalid token"));
 
             // Call the method under test
-            var result = telemetryService.createSasToken(tokenRepresentation);
+            var result = telemetryService.createAccessToken(tokenRepresentation);
 
             // Verify the result
             assertThat(result).isFailed().extracting(ServiceFailure::getReason).isEqualTo(BAD_REQUEST);
@@ -96,7 +96,7 @@ class TelemetryServiceImplTest {
                     .thenReturn(Result.failure("Policy evaluation failed"));
 
             // Call the method under test
-            var result = telemetryService.createSasToken(tokenRepresentation);
+            var result = telemetryService.createAccessToken(tokenRepresentation);
 
             // Verify the result
             assertThat(result).isFailed().extracting(ServiceFailure::getReason).isEqualTo(UNAUTHORIZED);

@@ -45,6 +45,7 @@ public class DataConsumptionMetricsPublisher implements ContainerResponseFilter 
                 .responseStatusCode(responseContext.getStatus())
                 .participantId(ownDid)
                 .traceContext(traceContext)
+                .timestamp(System.currentTimeMillis())
                 .build();
 
         telemetryRecordStore.save(record);

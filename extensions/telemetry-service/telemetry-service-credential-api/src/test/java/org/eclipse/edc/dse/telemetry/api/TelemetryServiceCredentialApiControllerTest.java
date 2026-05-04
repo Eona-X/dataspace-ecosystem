@@ -45,7 +45,7 @@ class TelemetryServiceCredentialApiControllerTest extends RestControllerTestBase
             var token = UUID.randomUUID().toString();
             var sasToken = UUID.randomUUID().toString();
 
-            when(telemetryService.createSasToken(assertArg(tokenRepresentation -> assertThat(tokenRepresentation.getToken()).isEqualTo(token))))
+            when(telemetryService.createAccessToken(assertArg(tokenRepresentation -> assertThat(tokenRepresentation.getToken()).isEqualTo(token))))
                     .thenReturn(ServiceResult.success(TokenRepresentation.Builder.newInstance().token(sasToken).build()));
 
             var response = baseRequest()
@@ -63,7 +63,7 @@ class TelemetryServiceCredentialApiControllerTest extends RestControllerTestBase
 
         @Test
         void serviceFails_shouldReturnInternalServerError() {
-            when(telemetryService.createSasToken(any())).thenReturn(ServiceResult.unexpected("error"));
+            when(telemetryService.createAccessToken(any())).thenReturn(ServiceResult.unexpected("error"));
 
             baseRequest()
                     .header(AUTHORIZATION, "token")

@@ -85,6 +85,9 @@ module "participant" {
   # Charts Path (relative to system-tests)
   charts_path = "../charts"
 
+  # Kafka Configuration
+  kafka_bootstrap_servers = each.key == "consumer" ? "${module.broker.kafka_broker_service_name}:${module.broker.kafka_broker_port}" : "${module.broker.proxy_provider_service_name}:${module.broker.proxy_provider_port}"
+
   depends_on = [
     module.participant_tls_certificates
   ]

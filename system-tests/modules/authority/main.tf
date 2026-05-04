@@ -30,11 +30,6 @@ module "billing-db" {
   postgres_admin_credentials_secret_name = var.postgres_admin_credentials_secret_name
 
 }
-module "eventhub" {
-  source                 = "./eventhub"
-  account_name_azurite   = var.account_name_azurite
-  account_secret_azurite = var.account_secret_azurite
-}
 
 resource "kubernetes_secret" "db-user-credentials" {
 

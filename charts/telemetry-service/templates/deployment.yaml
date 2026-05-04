@@ -145,22 +145,19 @@ spec:
               value: {{ .Values.telemetryservice.vault.hashicorp.paths.health | quote }}
           {{- end }}
 
-            ############################
-            # AZURE CREDENTIAL FACTORY #
-            ############################
-          {{- if .Values.telemetryservice.credentialfactory.azure.eventhub.sas.uri }}
-            - name: "DSE_CREDENTIAL-FACTORY_AZURE_EVENT-HUB_SAS_URI"
-              value: {{ .Values.telemetryservice.credentialfactory.azure.eventhub.sas.uri | quote }}
-            - name: "DSE_CREDENTIAL-FACTORY_AZURE_EVENT-HUB_SAS_VALIDITY"
-              value: {{ .Values.telemetryservice.credentialfactory.azure.eventhub.sas.validity | quote }}
-            - name: "DSE_CREDENTIAL-FACTORY_AZURE_EVENT-HUB_SAS_KEY_NAME"
-              value: {{ .Values.telemetryservice.credentialfactory.azure.eventhub.sas.key.name | required ".Values.telemetryservice.credentialfactory.azure.eventhub.sas.key.name is required" | quote }}
-            - name: "DSE_CREDENTIAL-FACTORY_AZURE_EVENT-HUB_SAS_KEY_ALIAS"
-              value: {{ .Values.telemetryservice.credentialfactory.azure.eventhub.sas.key.alias | required ".Values.telemetryservice.credentialfactory.azure.eventhub.sas.key.alias is required" | quote }}
-          {{- else }}
-            - name: "DSE_CREDENTIAL-FACTORY_AZURE_EVENT-HUB_CONNECTION-STRING_ALIAS"
-              value: {{ .Values.telemetryservice.credentialfactory.azure.eventhub.connectionstring.alias | required ".Values.telemetryservice.credentialfactory.azure.eventhub.connectionstring.alias is required" | quote }}
+            ##########################
+            # JWT CREDENTIAL FACTORY #
+            ##########################
+          {{- if .Values.telemetryservice.credentialfactory.jwt }}
+            - name: "DSE_CREDENTIAL-FACTORY_JWT_VALIDITY"
+              value: {{ .Values.telemetryservice.credentialfactory.jwt.validity | default "3600" | quote }}
+            - name: "DSE_TELEMETRY_CREDENTIAL_SIGNER_PRIVATEKEY_ALIAS"
+              value: {{ .Values.telemetryservice.credentialfactory.jwt.signer.privatekey.alias | required ".Values.telemetryservice.credentialfactory.jwt.signer.privatekey.alias is required" | quote }}
+            - name: "DSE_TELEMETRY_CREDENTIAL_SIGNER_PUBLICKEY_ALIAS"
+              value: {{ .Values.telemetryservice.credentialfactory.jwt.signer.publickey.alias | required ".Values.telemetryservice.credentialfactory.jwt.signer.publickey.alias is required" | quote }}
           {{- end }}
+            - name: "DSE_AUTHORITY_DID"
+              value: {{ .Values.telemetryservice.did.web.url | required ".Values.telemetryservice.did.web.url is required" | quote }}
 
             ################
             #    DID       #
