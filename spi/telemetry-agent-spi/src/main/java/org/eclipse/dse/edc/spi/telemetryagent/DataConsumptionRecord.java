@@ -15,6 +15,7 @@ public class DataConsumptionRecord extends TelemetryRecord {
     private static final String PROPERTY_CONTRACT_ID = "contractId";
     private static final String PROPERTY_PARTICIPANT_ID = "participantId";
     private static final String PROPERTY_RESPONSE_STATUS_CODE = "responseStatusCode";
+    private static final String PROPERTY_TIMESTAMP = "timestamp";
 
     private DataConsumptionRecord() {
         super();
@@ -36,6 +37,9 @@ public class DataConsumptionRecord extends TelemetryRecord {
         return getPropertyAsString(PROPERTY_PARTICIPANT_ID);
     }
 
+    public Long getTimestamp() {
+        return getProperty(PROPERTY_TIMESTAMP);
+    }
 
     @JsonPOJOBuilder(withPrefix = "")
     public static final class Builder extends TelemetryRecord.Builder {
@@ -69,6 +73,11 @@ public class DataConsumptionRecord extends TelemetryRecord {
             return this;
         }
 
+        public Builder timestamp(Long timestamp) {
+            this.property(PROPERTY_TIMESTAMP, timestamp);
+            return this;
+        }
+
         @Override
         public Builder traceContext(Map<String, String> traceContext) {
             super.traceContext(traceContext);
@@ -84,6 +93,7 @@ public class DataConsumptionRecord extends TelemetryRecord {
             assertNotNull(record.getResponseSize(), PROPERTY_RESPONSE_SIZE);
             assertNotNull(record.getResponseStatusCode(), PROPERTY_RESPONSE_STATUS_CODE);
             assertNotNull(record.getParticipantId(), PROPERTY_PARTICIPANT_ID);
+            assertNotNull(record.getTimestamp(), PROPERTY_TIMESTAMP);
             return record;
         }
 

@@ -9,110 +9,130 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class KafkaIntermediary {
 
+    private static final String PROXY_BROKER = "proxy-provider:30001";
+    private static final String SASL_USERNAME = "provider";
+    private static final String SASL_PASSWORD = "secret1";
+    private static final String CA_CERT_PATH = "/etc/kafka/ca.crt";
+
     public static void provider_publish(String kafkacatPod) {
         String message = "Hello from provider!";
-        int podPort = 9092;
-
-        List<String> cmd = Arrays.asList(
-                "kubectl", "exec", "-i", kafkacatPod, "-n", "default",
-                "--", "kcat",
-                "-b", "broker.default.svc.cluster.local:" + podPort,
-                "-t", "tst-topic",
-                "-P",
-                "-X", "security.protocol=PLAINTEXT"
-        );
-
-        ProcessBuilder pb = new ProcessBuilder(cmd);
-        pb.redirectErrorStream(true);
+        ProcessBuilder pb = getProcessBuilder(kafkacatPod);
 
         try {
             Process process = pb.start();
 
+            StringBuilder outputCapture = new StringBuilder();
+            Thread drainThread = new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        outputCapture.append(line).append("\n");
+                    }
+                } catch (Exception ignored) {
+                }
+            });
+            drainThread.setDaemon(true);
+            drainThread.start();
+
             try (OutputStream os = process.getOutputStream();
-                    PrintWriter writer = new PrintWriter(os, true)) {
+                 PrintWriter writer = new PrintWriter(os, true)) {
                 writer.println(message);
             }
 
-            boolean finished = process.waitFor(5, TimeUnit.SECONDS);
-
+            boolean finished = process.waitFor(15, TimeUnit.SECONDS);
             if (!finished) {
-                process.destroy();
-                if (!process.waitFor(2, TimeUnit.SECONDS)) {
-                    process.destroyForcibly();
-                }
-                throw new RuntimeException("kcat producer did not finish properly (timed out).");
+                process.destroyForcibly();
+                throw new RuntimeException(
+                        "kcat producer timed out. Output: " + outputCapture);
             }
+
+            drainThread.join(2000);
 
             int exitCode = process.exitValue();
             if (exitCode != 0) {
-                try (BufferedReader reader = new BufferedReader(
-                        new InputStreamReader(process.getInputStream()))) {
-                    String output = reader.lines().collect(Collectors.joining("\n"));
-                    throw new RuntimeException("kcat producer failed: " + output);
-                }
+                throw new RuntimeException(
+                        "kcat producer exited with code " + exitCode + ". Output: " + outputCapture);
             }
 
+        } catch (RuntimeException e) {
+            throw e;
         } catch (Exception e) {
             throw new RuntimeException("Failed to publish message to Kafka via kcat", e);
         }
     }
 
-
     public static boolean waitForKafkaMessage(String serviceName, int podPort, String topic,
-                                              String expectedMessage, Duration timeout, String kafkacatPod) throws Exception {
-        List<String> kcatCmd = Arrays.asList(
+                                              String expectedMessage, Duration timeout,
+                                              String kafkacatPod) throws Exception {
+        List<String> fullCmd = new ArrayList<>(Arrays.asList(
+                "kubectl", "exec", "-i", kafkacatPod, "-n", "default", "--",
                 "kcat",
                 "-b", serviceName + ":" + podPort,
                 "-t", topic,
-                "-C",
-                "-o", "beginning",
-                "-X", "security.protocol=SASL_PLAINTEXT",
+                "-C", "-o", "beginning", "-q",
+                "-X", "security.protocol=SASL_SSL",
                 "-X", "sasl.mechanism=PLAIN",
-                "-X", "sasl.username=admin",
-                "-X", "sasl.password=admin-secret"
-        );
-
-        List<String> fullCmd = new ArrayList<>();
-        fullCmd.addAll(Arrays.asList("kubectl", "exec", "-i", kafkacatPod, "--", "sh", "-c",
-                String.join(" ", kcatCmd)));
+                "-X", "sasl.username=" + SASL_USERNAME,
+                "-X", "sasl.password=" + SASL_PASSWORD,
+                "-X", "ssl.ca.location=" + CA_CERT_PATH
+        ));
 
         ProcessBuilder pb = new ProcessBuilder(fullCmd);
         pb.redirectErrorStream(true);
-
         Process process = pb.start();
-        StringBuilder output = new StringBuilder();
 
-        long start = System.currentTimeMillis();
-        long maxWaitMillis = timeout.toMillis();
+        AtomicBoolean found = new AtomicBoolean(false);
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
-
-                if (line.contains(expectedMessage)) {
-                    process.destroyForcibly();
-                    return true;
+        Thread readerThread = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.contains(expectedMessage)) {
+                        found.set(true);
+                        process.destroyForcibly();
+                        return;
+                    }
                 }
-
-                if (System.currentTimeMillis() - start > maxWaitMillis) {
-                    break;
-                }
+            } catch (Exception ignored) {
             }
-        } finally {
-            if (process.isAlive()) {
-                process.destroy();
-                if (!process.waitFor(2, TimeUnit.SECONDS)) {
-                    process.destroyForcibly();
-                }
+        });
+
+        readerThread.setDaemon(true);
+        readerThread.start();
+        readerThread.join(timeout.toMillis());
+
+        if (process.isAlive()) {
+            process.destroy();
+            if (!process.waitFor(2, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
             }
         }
 
-        return output.toString().contains(expectedMessage);
+        return found.get();
     }
 
+    private static ProcessBuilder getProcessBuilder(String kafkacatPod) {
+        List<String> cmd = Arrays.asList(
+                "kubectl", "exec", "-i", kafkacatPod, "-n", "default",
+                "--", "kcat",
+                "-b", PROXY_BROKER,
+                "-t", "tst-topic",
+                "-P",
+                "-X", "security.protocol=SASL_SSL",
+                "-X", "sasl.mechanism=PLAIN",
+                "-X", "sasl.username=" + SASL_USERNAME,
+                "-X", "sasl.password=" + SASL_PASSWORD,
+                "-X", "ssl.ca.location=" + CA_CERT_PATH
+        );
+
+        ProcessBuilder pb = new ProcessBuilder(cmd);
+        pb.redirectErrorStream(true);
+        return pb;
+    }
 }

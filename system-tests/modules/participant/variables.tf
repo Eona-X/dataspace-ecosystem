@@ -105,7 +105,23 @@ variable "provider_scope" {
 variable "auth_mechanism" {
   description = "Authentication mechanism: PLAIN (JWT-over-PLAIN) or OAUTHBEARER (proper OAuth2)"
   type        = string
-  default     = ""
+  default     = "PLAIN"
+  validation {
+    condition     = contains(["PLAIN", "OAUTHBEARER"], var.auth_mechanism)
+    error_message = "Authentication mechanism must be either PLAIN or OAUTHBEARER."
+  }
+}
+
+variable "auth_tenant_id" {
+  description = "OAuth2 tenant ID for authentication"
+  type        = string
+  default     = "<your-tenant-id>"
+}
+
+variable "auth_client_id" {
+  description = "Application client ID for authentication"
+  type        = string
+  default     = "<your-client-id>"
 }
 
 variable "auth_static_users" {
@@ -202,4 +218,16 @@ variable "telemetry_agent_image" {
   description = "Telemetry agent image name for self-hosted environments"
   type        = string
   default     = ""
+}
+
+variable "kafka_bootstrap_servers" {
+  description = "Kafka bootstrap servers for the telemetry agent"
+  type        = string
+  default     = "broker.default.svc.cluster.local:9092"
+}
+
+variable "kafka_topic" {
+  description = "Kafka topic for telemetry events"
+  type        = string
+  default     = "telemetry"
 }

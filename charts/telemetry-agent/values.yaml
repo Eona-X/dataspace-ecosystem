@@ -77,10 +77,17 @@ telemetryagent:
   credentialfactory:
     credentialmanager:
       privatekey:
+        # -- Alias of the private key in the vault used for signing tokens (e.g., "provider" or "consumer").
         alias: ""
 
   authority:
     did: ""
+
+  telemetryservice:
+    kafka:
+      # -- Kafka bootstrap servers. In tests, use "provider-broker:9092" for consumers or "proxy-provider:30001" for providers (proxied).
+      bootstrapServers: ""
+      topic: "telemetry"
 
   postgresql:
     # -- jdbc url of the database

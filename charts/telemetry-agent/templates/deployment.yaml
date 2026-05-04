@@ -141,18 +141,18 @@ spec:
           {{- end }}
 
 
-            ############################
-            # AZURE CREDENTIAL FACTORY #
-            ############################
+            #######################
+            # CREDENTIAL SETTINGS #
+            #######################
             - name: "DSE_CREDENTIAL-MANAGER_PRIVATE-KEY_ALIAS"
-              value: {{ .Values.telemetryagent.credentialmanager.privatekey.alias | required ".Values.telemetryagent.credentialmanager.privatekey.alias is required" | quote }}
+              value: {{ .Values.telemetryagent.credentialfactory.credentialmanager.privatekey.alias | required ".Values.telemetryagent.credentialfactory.credentialmanager.privatekey.alias is required" | quote }}
 
             - name: "DSE_AUTHORITY_DID"
               value: {{ .Values.telemetryagent.authority.did | required ".Values.telemetryagent.authority.did is required" | quote }}
-            - name: "DSE_TELEMETRY-SERVICE_EVENTHUB_NAME"
-              value: {{ .Values.telemetryagent.telemetryservice.eventhub.name | required ".Values.telemetryagent.telemetryservice.eventhub.name is required" | quote }}
-            - name: "DSE_TELEMETRY-SERVICE_EVENTHUB_NAMESPACE"
-              value: {{ .Values.telemetryagent.telemetryservice.eventhub.namespace | required ".Values.telemetryagent.telemetryservice.eventhub.namespace is required" | quote }}
+            - name: "DSE_TELEMETRY-SERVICE_KAFKA_BOOTSTRAP_SERVERS"
+              value: {{ .Values.telemetryagent.telemetryservice.kafka.bootstrapServers | required ".Values.telemetryagent.telemetryservice.kafka.bootstrapServers is required" | quote }}
+            - name: "DSE_TELEMETRY-SERVICE_KAFKA_TOPIC"
+              value: {{ .Values.telemetryagent.telemetryservice.kafka.topic | default "telemetry" | quote }}
             
 
             #############
@@ -180,11 +180,11 @@ spec:
             # STS REMOTE CONFIG #
             #####################
             - name: "EDC_IAM_STS_OAUTH_TOKEN_URL"
-              value: {{.Values.telemetryagent.sts.tokenUrl | required ".Values.telemetryagent.sts.tokenUrl is required" | quote}}
+              value: {{ .Values.telemetryagent.keys.sts.tokenUrl | required ".Values.telemetryagent.keys.sts.tokenUrl is required" | quote }}
             - name: "EDC_IAM_STS_OAUTH_CLIENT_ID"
-              value: {{.Values.telemetryagent.sts.clientId | required ".Values.telemetryagent.sts.clientId is required" | quote}}
+              value: {{ .Values.telemetryagent.keys.sts.clientId | required ".Values.telemetryagent.keys.sts.clientId is required" | quote }}
             - name: "EDC_IAM_STS_OAUTH_CLIENT_SECRET_ALIAS"
-              value: {{.Values.telemetryagent.sts.clientSecretAlias | required ".Values.telemetryagent.sts.clientSecretAlias is required" | quote}}
+              value: {{ .Values.telemetryagent.keys.sts.clientSecretAlias | required ".Values.telemetryagent.keys.sts.clientSecretAlias is required" | quote }}
 
             #######
             # API #

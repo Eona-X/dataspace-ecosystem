@@ -5,5 +5,4 @@ plugins {
 dependencies {
     implementation(project(":launchers:federated-catalog-filter:federated-catalog-filter-base"))
     implementation(project(":launchers:federated-catalog-filter:federated-catalog-filter-postgresql-hashicorpvault"))
-    implementation(project(":launchers:federated-catalog-filter:federated-catalog-filter-postgresql-azurevault"))
 }

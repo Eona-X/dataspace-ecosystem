@@ -57,13 +57,20 @@ resource "helm_release" "telemetryservice" {
         "config" : <<EOT
 edc.iam.trusted-issuer.authority.id=${local.authority_did}
 edc.vault.hashicorp.token.scheduled-renew-enabled=false
+dse.authority.did=${local.authority_did}
+dse.telemetry.credential.signer.privatekey.alias=${local.privatekey_alias}
+dse.telemetry.credential.signer.publickey.alias=${local.publickey_alias}
         EOT
 
         "credentialfactory" : {
-          "azure" : {
-            "eventhub" : {
-              "connectionstring" : {
-                "alias" : local.connection_string_alias
+          "jwt" : {
+            "validity" : 3600
+            "signer" : {
+              "privatekey" : {
+                "alias" : var.telemetry_credential_signer_alias
+              },
+              "publickey" : {
+                "alias" : var.telemetry_credential_public_key_alias
               }
             }
           }

@@ -7,6 +7,6 @@ import org.eclipse.edc.spi.result.ServiceResult;
 @ExtensionPoint
 public interface TelemetryService {
 
-    ServiceResult<TokenRepresentation> createSasToken(TokenRepresentation tokenRepresentation);
+    ServiceResult<TokenRepresentation> createAccessToken(TokenRepresentation tokenRepresentation);
 
 }

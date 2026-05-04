@@ -95,16 +95,13 @@ telemetryservice:
         passwordKey: "password"
 
   credentialfactory:
-    azure:
-      eventhub:
-        connectionstring:
+    jwt:
+      validity: 3600
+      signer:
+        privatekey:
           alias: ""
-        sas:
-          uri: ""
-          validity: 300
-          key:
-            name: ""
-            alias: ""
+        publickey:
+          alias: ""
 
   vault:
     # -- Hashicorp Vault

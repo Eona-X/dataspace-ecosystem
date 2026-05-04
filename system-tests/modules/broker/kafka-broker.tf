@@ -391,6 +391,7 @@ resource "kubernetes_deployment" "proxy_provider" {
             "--dynamic-advertised-listener=proxy-${each.value}:30001",
             "--auth-local-enable=true",
             "--auth-local-mechanism=PLAIN",
+            "--auth-local-param=--jwks-url=http://authority-telemetryservice:8181/api/credential/v1alpha/jwks.json",
             "--auth-local-command=/usr/local/bin/oidc-token-verifier",
             "--auth-local-param=--client-id=${var.verifier_client_id},${var.provider_client_id},account",
             "--auth-local-param=--static-user=${each.value}:secret1",
@@ -527,6 +528,12 @@ resource "kubernetes_deployment" "kafkacat" {
             value = "30001"
           }
 
+          volume_mount {
+            name       = "kafka-ca-cert"
+            mount_path = "/etc/kafka"
+            read_only  = true
+          }
+
           resources {
             requests = {
               memory = "64Mi"
@@ -535,6 +542,17 @@ resource "kubernetes_deployment" "kafkacat" {
             limits = {
               memory = "128Mi"
               cpu    = "100m"
+            }
+          }
+        }
+
+        volume {
+          name = "kafka-ca-cert"
+          secret {
+            secret_name = kubernetes_secret.proxy_provider_tls_ca[each.key].metadata[0].name
+            items {
+              key  = "ca.crt"
+              path = "ca.crt"
             }
           }
         }

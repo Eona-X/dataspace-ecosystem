@@ -5,8 +5,6 @@ locals {
     var.environment == "selfhosted" ? var.telemetry_agent_image :
     "telemetry-agent-postgresql-hashicorpvault"
   )
-  namespace                    = "local-eventhub-eventhubs"
-  name                         = "eh1"
   telemetry_agent_release_name = "${var.participant_name}-telemetryagent"
 }
 
@@ -41,7 +39,10 @@ resource "helm_release" "telemetryagent" {
         "keys" : {
           "sts" : {
             "privateKeyVaultAlias" : local.privatekey_alias,
-            "publicKeyVaultAlias" : "${local.did_url}#my-key"
+            "publicKeyVaultAlias" : "${local.did_url}#my-key",
+            "tokenUrl" : local.sts_url,
+            "clientId" : local.did_url,
+            "clientSecretAlias" : local.sts_client_secret_alias
           }
         },
         "did" : {
@@ -54,11 +55,7 @@ resource "helm_release" "telemetryagent" {
           "did" : local.authority_did
         }
 
-        "sts" : {
-          "tokenUrl" : local.sts_url
-          "clientId" : local.did_url,
-          "clientSecretAlias" : local.sts_client_secret_alias
-        }
+
 
         "logging" : <<EOT
         .level=INFO
@@ -73,17 +70,23 @@ resource "helm_release" "telemetryagent" {
 edc.vault.hashicorp.token.scheduled-renew-enabled=false
         EOT
 
-        "credentialmanager" : {
-          "privatekey" : {
-            "alias" : var.participant_name
+        "credentialfactory" : {
+          "credentialmanager" : {
+            "privatekey" : {
+              "alias" : var.participant_name
+            }
           }
-        }
+        },
         "telemetryservice" : {
-          "eventhub" : {
-            "namespace" : local.namespace,
-            "name" : local.name
+          "kafka" : {
+            "bootstrapServers" : var.kafka_bootstrap_servers,
+            "topic" : var.kafka_topic
           }
-        }
+        },
+        "env" : {
+          "DSE_TELEMETRY-SERVICE_KAFKA_SECURITY_PROTOCOL" : var.participant_name == "consumer" ? "PLAINTEXT" : "SASL_PLAINTEXT",
+          "DSE_TELEMETRY-SERVICE_KAFKA_SASL_MECHANISM" : "PLAIN"
+        },
 
         "postgresql" : {
           "jdbcUrl" : "jdbc:postgresql://${var.db_server_fqdn}/${local.db_name}",

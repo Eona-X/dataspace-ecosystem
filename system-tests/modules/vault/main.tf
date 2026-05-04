@@ -122,11 +122,11 @@ resource "kubernetes_job" "vault-keygen-job" {
             "sh",
             "-c",
             <<-EOF
-              echo "${tls_private_key.key-pair.public_key_pem}" > publickey.pem
-              echo "${tls_private_key.key-pair.private_key_pem}" > privatekey.pem
+              echo "${tls_private_key.key-pair.public_key_pem}" > /tmp/publickey.pem
+              echo "${tls_private_key.key-pair.private_key_pem}" > /tmp/privatekey.pem
 
-              vault kv put secret/${var.participant_name} content="$(cat privatekey.pem)"
-              vault kv put secret/${var.participant_name}-pub content="$(cat publickey.pem)"
+              vault kv put secret/${var.participant_name} content="$(cat /tmp/privatekey.pem)"
+              vault kv put secret/${var.participant_name}-pub content="$(cat /tmp/publickey.pem)"
             EOF
           ]
           env {
