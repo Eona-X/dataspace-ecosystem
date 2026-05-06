@@ -33,7 +33,7 @@ import static java.time.Clock.systemUTC;
 public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension {
 
     public static final String NAME = "Kafka Telemetry Publisher Extension";
-    private static final String LOGIN_MODULE = "org.eclipse.edc.telemetry.DynamicTokenCallbackHandler";
+    private static final String LOGIN_MODULE = "org.apache.kafka.common.security.plain.PlainLoginModule";
     private static final String ACKS_ALL = "all";
     private static final int MAX_RETRIES = 3;
 
