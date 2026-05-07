@@ -13,6 +13,7 @@ import org.eclipse.edc.spi.monitor.Monitor;
 import org.eclipse.edc.spi.system.ServiceExtension;
 import org.eclipse.edc.spi.system.ServiceExtensionContext;
 
+import java.util.List;
 import java.util.Set;
 
 import static org.eclipse.dse.iam.policy.CatalogDiscoveryPolicyContext.CATALOG_DISCOVERY_SCOPE;
@@ -24,6 +25,7 @@ import static org.eclipse.edc.connector.controlplane.catalog.spi.policy.CatalogP
 import static org.eclipse.edc.connector.controlplane.contract.spi.policy.ContractNegotiationPolicyContext.NEGOTIATION_SCOPE;
 import static org.eclipse.edc.connector.controlplane.contract.spi.policy.TransferProcessPolicyContext.TRANSFER_SCOPE;
 import static org.eclipse.edc.jsonld.spi.PropertyAndTypeNames.ODRL_USE_ACTION_ATTRIBUTE;
+import static org.eclipse.edc.policy.model.OdrlNamespace.ODRL_SCHEMA;
 import static org.eclipse.edc.spi.core.CoreConstants.DSE_POLICY_NS;
 import static org.eclipse.edc.spi.core.CoreConstants.DSE_POLICY_PREFIX;
 
@@ -35,6 +37,12 @@ public class PolicyEvaluationExtension implements ServiceExtension {
             NEGOTIATION_SCOPE,
             CATALOG_DISCOVERY_SCOPE,
             TELEMETRY_SCOPE
+    );
+
+    private static final List<String> ADDITIONAL_ODRL_ACTIONS = List.of(
+            ODRL_SCHEMA + "transfer",
+            ODRL_SCHEMA + "share",
+            ODRL_SCHEMA + "distribute"
     );
 
     @Inject
@@ -84,6 +92,10 @@ public class PolicyEvaluationExtension implements ServiceExtension {
         ruleBindingRegistry.dynamicBind(s -> s.startsWith(DSE_MEMBERSHIP_CONSTRAINT) ? RULE_SCOPES : Set.of());
         ruleBindingRegistry.dynamicBind(s -> s.startsWith(DSE_RESTRICTED_CATALOG_DISCOVERY_CONSTRAINT) ? Set.of(CATALOG_DISCOVERY_SCOPE, NEGOTIATION_SCOPE, TRANSFER_SCOPE) : Set.of());
         RULE_SCOPES.forEach(scope -> ruleBindingRegistry.bind(ODRL_USE_ACTION_ATTRIBUTE, scope));
+        
+        for (var action : ADDITIONAL_ODRL_ACTIONS) {
+            RULE_SCOPES.forEach(scope -> ruleBindingRegistry.bind(action, scope));
+        }
     }
 
 }
