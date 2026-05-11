@@ -95,6 +95,16 @@ spec:
         - name: "EDC_COMPONENT_ID"
           value: {{include "dse.fullname" .}}
 
+        ############################
+        ## KAFKA CONSUMER CONFIG  ##
+        ############################
+        - name: "DSE_TELEMETRY-STORAGE_KAFKA_BOOTSTRAP_SERVERS"
+          value: {{ .Values.telemetrystorage.kafka.bootstrapServers | required ".Values.telemetrystorage.kafka.bootstrapServers is required" | quote }}
+        - name: "DSE_TELEMETRY-STORAGE_KAFKA_TOPIC"
+          value: {{ .Values.telemetrystorage.kafka.topic | default "telemetry" | quote }}
+        - name: "DSE_TELEMETRY-STORAGE_KAFKA_GROUP_ID"
+          value: {{ .Values.telemetrystorage.kafka.groupId | default "telemetry-storage-group" | quote }}
+
         ##############
         # POSTGRESQL #
         ##############

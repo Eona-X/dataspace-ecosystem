@@ -73,6 +73,11 @@ telemetrystorage:
       # -- allowed headers for incoming calls
       allowedHeaders: "*"
 
+  kafka:
+    bootstrapServers: ""
+    topic: "telemetry"
+    groupId: "telemetry-storage-group"
+
   # -- Postgresql database configuration
   postgresql:
     schema:

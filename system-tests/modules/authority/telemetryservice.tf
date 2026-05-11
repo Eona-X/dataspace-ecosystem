@@ -1,6 +1,5 @@
 locals {
   telemetryservice_release_name = "${var.authority_name}-telemetryservice"
-  connection_string_alias       = "event-hub-connection-string"
   telemetry_service_image = (
     var.environment == "local" ? "localhost/telemetry-service-postgresql-hashicorpvault" :
     var.environment == "devbox" ? "${var.devbox-registry}/telemetry-service-postgresql-hashicorpvault" :

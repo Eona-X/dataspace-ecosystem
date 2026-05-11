@@ -108,6 +108,9 @@ module "authority" {
   account_secret_azurite                 = var.account_secret_azurite
   devbox-registry                        = var.devbox-registry
   devbox-registry-cred                   = var.devbox-registry-cred
+
+  # Kafka Configuration
+  kafka_bootstrap_servers = "${module.broker.kafka_broker_service_name}:${module.broker.kafka_broker_port}"
 }
 
 ######################
