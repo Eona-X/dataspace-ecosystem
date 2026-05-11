@@ -1,6 +1,5 @@
 package org.eclipse.dse.iam.policy;
 
-import org.eclipse.dse.spi.telemetry.TelemetryPolicyContext;
 import org.eclipse.edc.connector.controlplane.catalog.spi.policy.CatalogPolicyContext;
 import org.eclipse.edc.connector.controlplane.contract.spi.policy.ContractNegotiationPolicyContext;
 import org.eclipse.edc.connector.controlplane.contract.spi.policy.TransferProcessPolicyContext;
@@ -20,7 +19,6 @@ import static org.eclipse.dse.iam.policy.CatalogDiscoveryPolicyContext.CATALOG_D
 import static org.eclipse.dse.iam.policy.PolicyConstants.DSE_GENERIC_CLAIM_CONSTRAINT;
 import static org.eclipse.dse.iam.policy.PolicyConstants.DSE_MEMBERSHIP_CONSTRAINT;
 import static org.eclipse.dse.iam.policy.PolicyConstants.DSE_RESTRICTED_CATALOG_DISCOVERY_CONSTRAINT;
-import static org.eclipse.dse.spi.telemetry.TelemetryPolicyContext.TELEMETRY_SCOPE;
 import static org.eclipse.edc.connector.controlplane.catalog.spi.policy.CatalogPolicyContext.CATALOG_SCOPE;
 import static org.eclipse.edc.connector.controlplane.contract.spi.policy.ContractNegotiationPolicyContext.NEGOTIATION_SCOPE;
 import static org.eclipse.edc.connector.controlplane.contract.spi.policy.TransferProcessPolicyContext.TRANSFER_SCOPE;
@@ -35,8 +33,7 @@ public class PolicyEvaluationExtension implements ServiceExtension {
             TRANSFER_SCOPE,
             CATALOG_SCOPE,
             NEGOTIATION_SCOPE,
-            CATALOG_DISCOVERY_SCOPE,
-            TELEMETRY_SCOPE
+            CATALOG_DISCOVERY_SCOPE
     );
 
     private static final List<String> ADDITIONAL_ODRL_ACTIONS = List.of(
@@ -74,13 +71,11 @@ public class PolicyEvaluationExtension implements ServiceExtension {
         policyEngine.registerFunction(ContractNegotiationPolicyContext.class, Permission.class, new MembershipConstraintFunction<>());
         policyEngine.registerFunction(TransferProcessPolicyContext.class, Permission.class, new MembershipConstraintFunction<>());
         policyEngine.registerFunction(CatalogDiscoveryPolicyContext.class, Permission.class, new MembershipConstraintFunction<>());
-        policyEngine.registerFunction(TelemetryPolicyContext.class, Permission.class, new MembershipConstraintFunction<>());
 
         policyEngine.registerFunction(CatalogPolicyContext.class, Permission.class, new JsonPathCredentialConstraintFunction<>());
         policyEngine.registerFunction(ContractNegotiationPolicyContext.class, Permission.class, new JsonPathCredentialConstraintFunction<>());
         policyEngine.registerFunction(TransferProcessPolicyContext.class, Permission.class, new JsonPathCredentialConstraintFunction<>());
         policyEngine.registerFunction(CatalogDiscoveryPolicyContext.class, Permission.class, new JsonPathCredentialConstraintFunction<>());
-        policyEngine.registerFunction(TelemetryPolicyContext.class, Permission.class, new JsonPathCredentialConstraintFunction<>());
 
         policyEngine.registerFunction(ContractNegotiationPolicyContext.class, Permission.class, new CatalogDiscoveryConstraintFunction<>());
         policyEngine.registerFunction(TransferProcessPolicyContext.class, Permission.class, new CatalogDiscoveryConstraintFunction<>());
