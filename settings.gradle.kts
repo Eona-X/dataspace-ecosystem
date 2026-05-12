@@ -50,6 +50,7 @@ include(":extensions:telemetry-service:telemetry-service-credential-jwt")
 include(":extensions:telemetry-storage")
 include(":extensions:telemetry-storage:telemetry-storage-api")
 include(":extensions:telemetry-storage:telemetry-storage-store-sql")
+include(":extensions:telemetry-storage:telemetry-storage-kafka-consumer")
 
 include(":extensions:telemetry-csv-manager")
 include(":extensions:telemetry-csv-manager:telemetry-csv-manager-api")

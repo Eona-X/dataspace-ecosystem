@@ -36,6 +36,11 @@ resource "helm_release" "telemetrystorage" {
             "useHttps" : false
           }
         },
+        "kafka" : {
+          "bootstrapServers" : var.kafka_bootstrap_servers,
+          "topic" : var.kafka_topic,
+          "groupId" : var.kafka_group_id
+        },
 
         "logging" : <<EOT
         .level=DEBUG

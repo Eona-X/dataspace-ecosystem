@@ -41,3 +41,21 @@ variable "telemetry_credential_public_key_alias" {
   type        = string
   default     = "authority-pub"
 }
+
+variable "kafka_bootstrap_servers" {
+  description = "Kafka bootstrap servers for the telemetry agent"
+  type        = string
+  default     = "broker.default.svc.cluster.local:9092"
+}
+
+variable "kafka_topic" {
+  description = "Kafka topic for telemetry events"
+  type        = string
+  default     = "telemetry"
+}
+
+variable "kafka_group_id" {
+  description = "Kafka group ID for the telemetry storage"
+  type        = string
+  default     = "telemetry-storage-group"
+}
