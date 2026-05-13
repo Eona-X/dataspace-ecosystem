@@ -231,3 +231,15 @@ variable "kafka_topic" {
   type        = string
   default     = "telemetry"
 }
+
+variable "kafka_username" {
+  description = "Username for Kafka authentication (used in SASL/PLAIN NameCallback)"
+  type        = string
+  default     = "dev-telemetry"
+}
+
+variable "kafka_password" {
+  description = "Password for Kafka authentication."
+  type        = string
+  default     = "password"
+}

@@ -80,7 +80,9 @@ edc.vault.hashicorp.token.scheduled-renew-enabled=false
         "telemetryservice" : {
           "kafka" : {
             "bootstrapServers" : var.kafka_bootstrap_servers,
-            "topic" : var.kafka_topic
+            "topic" : var.kafka_topic,
+            "username" : var.kafka_username,
+            "password" : var.kafka_password
           }
         },
         "env" : {
