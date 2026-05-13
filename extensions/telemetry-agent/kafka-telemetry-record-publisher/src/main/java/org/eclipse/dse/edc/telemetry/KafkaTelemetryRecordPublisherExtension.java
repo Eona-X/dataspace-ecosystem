@@ -20,14 +20,11 @@ import org.eclipse.edc.spi.types.TypeManager;
 import java.time.Duration;
 import java.util.Properties;
 
-import static java.time.Clock.systemUTC;
-
 /**
  * EDC extension that provides a Kafka-based {@link TelemetryRecordPublisherFactory}.
  *
- * <p>The token is refreshed on every factory call by {@code TelemetryAgent}, which
- * guarantees the {@link DynamicTokenCallbackHandler} always holds a valid token without
- * requiring a proactive refresh scheduler.
+ * <p>The Kafka publisher is configured with SASL/PLAIN authentication using the
+ * {@link SaslPlainCallbackHandler}.
  */
 @Extension(value = KafkaTelemetryRecordPublisherExtension.NAME)
 public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension {
@@ -58,6 +55,12 @@ public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension 
     @Setting(required = false, key = "dse.telemetry-service.kafka.sasl.mechanism", defaultValue = "PLAIN")
     private String saslMechanism;
 
+    @Setting(required = true, key = "dse.telemetry-service.kafka.username")
+    private String username;
+
+    @Setting(required = true, key = "dse.telemetry-service.kafka.password")
+    private String password;
+
     @Inject
     private TypeManager typeManager;
 
@@ -65,7 +68,6 @@ public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension 
     private Monitor monitor;
 
     private volatile KafkaProducer<String, String> producer;
-    private DynamicTokenCallbackHandler callbackHandler;
 
     @Override
     public String name() {
@@ -74,22 +76,12 @@ public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension 
 
     @Override
     public void start() {
-        callbackHandler = DynamicTokenCallbackHandler.createManaged();
-        monitor.info("Kafka telemetry publisher extension started with instanceId: " + callbackHandler.getInstanceId());
+        monitor.info("Kafka telemetry publisher extension started for user: " + username);
     }
 
     @Provider
     public TelemetryRecordPublisherFactory telemetryRecordPublisherFactory(ServiceExtensionContext context) {
         return token -> {
-            if (token != null) {
-                try {
-                    OauthBearerTokenImpl bearerToken = OauthBearerTokenImpl.from(token.getToken(), systemUTC());
-                    callbackHandler.updateToken(bearerToken);
-                } catch (IllegalArgumentException e) {
-                    monitor.severe("Failed to parse OIDC token, Kafka authentication will fail: " + e.getMessage());
-                }
-            }
-
             if (producer == null) {
                 synchronized (this) {
                     if (producer == null) {
@@ -108,9 +100,6 @@ public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension 
         if (producer != null) {
             producer.close(Duration.ofSeconds(30));
             monitor.info("Kafka telemetry producer shut down gracefully");
-        }
-        if (callbackHandler != null) {
-            callbackHandler.close();
         }
     }
 
@@ -140,14 +129,14 @@ public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension 
 
     private void setSaslCallbackConfig(Properties properties) {
         String jaasConfig = String.format(
-                "%s required %s=\"%s\";",
+                "%s required username=\"%s\" password=\"%s\";",
                 LOGIN_MODULE,
-                DynamicTokenCallbackHandler.INSTANCE_ID_KEY,
-                callbackHandler.getInstanceId()
+                username,
+                password
         );
         properties.put(SaslConfigs.SASL_JAAS_CONFIG, jaasConfig);
-        properties.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, DynamicTokenCallbackHandler.class.getName());
-        properties.put(SaslConfigs.SASL_CLIENT_CALLBACK_HANDLER_CLASS, DynamicTokenCallbackHandler.class.getName());
+        properties.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, SaslPlainCallbackHandler.class.getName());
+        properties.put(SaslConfigs.SASL_CLIENT_CALLBACK_HANDLER_CLASS, SaslPlainCallbackHandler.class.getName());
     }
 
     private void setSslConfig(Properties properties) {

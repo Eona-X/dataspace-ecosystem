@@ -153,7 +153,10 @@ spec:
               value: {{ .Values.telemetryagent.telemetryservice.kafka.bootstrapServers | required ".Values.telemetryagent.telemetryservice.kafka.bootstrapServers is required" | quote }}
             - name: "DSE_TELEMETRY-SERVICE_KAFKA_TOPIC"
               value: {{ .Values.telemetryagent.telemetryservice.kafka.topic | default "telemetry" | quote }}
-            
+            - name: "DSE_TELEMETRY-SERVICE_KAFKA_USERNAME"
+              value: {{ .Values.telemetryagent.telemetryservice.kafka.username | default "dev-telemetry" | quote }}
+            - name: "DSE_TELEMETRY-SERVICE_KAFKA_PASSWORD"
+              value: {{ .Values.telemetryagent.telemetryservice.kafka.password | quote }}
 
             #############
             # SSI / DID #
