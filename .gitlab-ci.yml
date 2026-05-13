@@ -32,4 +32,3 @@ build:
   rules:
     - if: $CI_COMMIT_REF_NAME == "main"
     - if: $CI_COMMIT_REF_NAME == "dev"
-

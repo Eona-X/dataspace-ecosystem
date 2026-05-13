@@ -38,6 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
+import static org.eclipse.dse.core.kafkaproxy.service.VaultService.EDC_NS_URL;
 
 /**
  * Service for automatic discovery of Kafka EDRs from HashiCorp Vault
@@ -434,7 +435,7 @@ public class VaultDiscoveryService {
             JsonNode properties = contentNode.get("properties");
             
             if (properties != null) {
-                String edrType = properties.path("https://w3id.org/edc/v0.0.1/ns/type").asText("");
+                String edrType = properties.path(EDC_NS_URL + "/type").asText("");
                 // Case-insensitive comparison to accept both "Kafka" and "kafka"
                 boolean isKafka = KAFKA_TYPE.equalsIgnoreCase(edrType);
                 LOGGER.info(format("EDR %s type: %s (is_kafka: %s)", edrKey, edrType, isKafka));
@@ -472,15 +473,15 @@ public class VaultDiscoveryService {
             JsonNode dataAddressProps = contentNode.at("/dataAddress/properties");
             
             String bootstrapServers = getPropertyValue(properties, dataAddressProps,
-                    "https://w3id.org/edc/v0.0.1/ns/kafka.bootstrap.servers", "kafka.bootstrap.servers");
+                    EDC_NS_URL + "/kafka.bootstrap.servers", "kafka.bootstrap.servers");
             String topic = getPropertyValue(properties, dataAddressProps,
-                    "https://w3id.org/edc/v0.0.1/ns/topic", "topic");
+                    EDC_NS_URL + "/topic", "topic");
             String securityProtocol = getPropertyValue(properties, dataAddressProps,
-                    "https://w3id.org/edc/v0.0.1/ns/security.protocol", "security.protocol");
+                    EDC_NS_URL + "/security.protocol", "security.protocol");
             String saslMechanism = getPropertyValue(properties, dataAddressProps,
-                    "https://w3id.org/edc/v0.0.1/ns/sasl.mechanism", "sasl.mechanism");
+                    EDC_NS_URL + "/sasl.mechanism", "sasl.mechanism");
             String saslJaasConfig = getPropertyValue(properties, dataAddressProps,
-                    "https://w3id.org/edc/v0.0.1/ns/sasl.jaas.config", "sasl.jaas.config");
+                    EDC_NS_URL + "/sasl.jaas.config", "sasl.jaas.config");
             
             // Set defaults if not provided
             if (securityProtocol == null || securityProtocol.isEmpty()) {
