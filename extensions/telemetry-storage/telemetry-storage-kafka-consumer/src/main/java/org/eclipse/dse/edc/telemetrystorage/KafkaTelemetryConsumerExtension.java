@@ -106,10 +106,10 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
     @Setting(required = false, key = "dse.telemetrystorage.kafka.sasl.mechanism")
     private String saslMechanism;
 
-    @Setting(required = false, key = "dse.telemetrystorage.sasl.kafka.username")
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.sasl.username")
     private String saslUsername;
 
-    @Setting(required = false, key = "dse.telemetrystorage.sasl.kafka.password")
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.sasl.password")
     private String saslPassword;
 
     @Setting(required = false, key = "dse.telemetrystorage.kafka.ssl.truststore.location")
