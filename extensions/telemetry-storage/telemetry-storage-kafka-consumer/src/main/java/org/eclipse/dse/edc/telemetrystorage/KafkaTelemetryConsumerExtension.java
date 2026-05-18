@@ -1,5 +1,6 @@
 package org.eclipse.dse.edc.telemetrystorage;
 
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -7,6 +8,8 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.SaslConfigs;
+import org.apache.kafka.common.config.SslConfigs;
 import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.eclipse.dse.edc.spi.telemetryagent.TelemetryRecord;
@@ -65,6 +68,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Extension(value = KafkaTelemetryConsumerExtension.NAME)
 public class KafkaTelemetryConsumerExtension implements ServiceExtension {
 
+    private static final String LOGIN_MODULE = "org.apache.kafka.common.security.plain.PlainLoginModule";
     public static final String NAME = "Kafka Telemetry Consumer";
     private static final String THREAD_NAME = "kafka-telemetry-consumer";
     private static final String ENABLE_AUTO_COMMIT_FALSE = "false";
@@ -95,6 +99,24 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
 
     @Setting(required = false, key = "dse.telemetry-storage.kafka.group.id", defaultValue = "telemetry-storage-group")
     private String groupId;
+
+    @Setting(required = false, key = "dse.telemetry-storage.kafka.security.protocol", defaultValue = "PLAINTEXT")
+    private String securityProtocol;
+
+    @Setting(required = false, key = "dse.telemetry-storage.kafka.sasl.mechanism")
+    private String saslMechanism;
+
+    @Setting(required = false, key = "dse.telemetry-storage.kafka.username")
+    private String username;
+
+    @Setting(required = false, key = "dse.telemetry-storage.kafka.password")
+    private String password;
+
+    @Setting(required = false, key = "dse.telemetry-storage.kafka.ssl.truststore.location")
+    private String sslTruststoreLocation;
+
+    @Setting(required = false, key = "dse.telemetry-storage.kafka.ssl.truststore.type", defaultValue = "PEM")
+    private String sslTruststoreType;
 
     @Inject
     private TelemetryEventStore store;
@@ -138,7 +160,35 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
         properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
         properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, ENABLE_AUTO_COMMIT_FALSE);
         properties.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, AUTO_OFFSET_RESET_EARLIEST);
+
+        // Configure SASL_SSL if security protocol is set
+        if (securityProtocol != null && !securityProtocol.equals("PLAINTEXT")) {
+            properties.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, securityProtocol);
+            properties.put(SaslConfigs.SASL_MECHANISM, saslMechanism);
+            setSaslCallbackConfig(properties);
+            // Configure SASL mechanism if provided
+            if (saslMechanism != null) {
+                properties.put(SaslConfigs.SASL_MECHANISM, saslMechanism);
+            }
+
+            // Configure SSL truststore if provided
+            if (sslTruststoreLocation != null) {
+                properties.put(SslConfigs.SSL_TRUSTSTORE_LOCATION_CONFIG, sslTruststoreLocation);
+                properties.put(SslConfigs.SSL_TRUSTSTORE_TYPE_CONFIG, sslTruststoreType);
+            }
+        }
+
         return properties;
+    }
+
+    private void setSaslCallbackConfig(Properties properties) {
+        String jaasConfig = String.format(
+                "%s required username=\"%s\" password=\"%s\";",
+                LOGIN_MODULE,
+                username,
+                password
+        );
+        properties.put(SaslConfigs.SASL_JAAS_CONFIG, jaasConfig);
     }
 
     private void pollLoop() {
