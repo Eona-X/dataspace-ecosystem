@@ -23,8 +23,7 @@ import java.util.Properties;
 /**
  * EDC extension that provides a Kafka-based {@link TelemetryRecordPublisherFactory}.
  *
- * <p>The Kafka publisher is configured with SASL/PLAIN authentication using the
- * {@link SaslPlainCallbackHandler}.
+ * <p>The Kafka publisher is configured with SASL/PLAIN authentication.
  */
 @Extension(value = KafkaTelemetryRecordPublisherExtension.NAME)
 public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension {
@@ -135,8 +134,6 @@ public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension 
                 password
         );
         properties.put(SaslConfigs.SASL_JAAS_CONFIG, jaasConfig);
-        properties.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, SaslPlainCallbackHandler.class.getName());
-        properties.put(SaslConfigs.SASL_CLIENT_CALLBACK_HANDLER_CLASS, SaslPlainCallbackHandler.class.getName());
     }
 
     private void setSslConfig(Properties properties) {

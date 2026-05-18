@@ -118,7 +118,7 @@ spec:
           value: {{ .Values.telemetrystorage.kafka.password | default "admin" | quote }}
 
 
-          ##############
+        ##############
         # POSTGRESQL #
         ##############
         - name: "EDC_SQL_SCHEMA_AUTOCREATE"
