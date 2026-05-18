@@ -119,7 +119,7 @@ spec:
         - name: "DSE_TELEMETRYSTORAGE_KAFKA_SSL_TRUSTSTORE_PASSWORD"
           value: {{ .Values.telemetrystorage.env.DSE_TELEMETRYSTORAGE_KAFKA_SSL_TRUSTSTORE_PASSWORD | quote }}
 
-          ##############
+        ##############
         # POSTGRESQL #
         ##############
         - name: "EDC_SQL_SCHEMA_AUTOCREATE"
