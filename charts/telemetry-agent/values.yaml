@@ -83,15 +83,17 @@ telemetryagent:
   authority:
     did: ""
 
-  telemetryservice:
-    kafka:
-      # -- Kafka bootstrap servers. In tests, use "provider-broker:9092" for consumers or "proxy-provider:30001" for providers (proxied).
-      bootstrapServers: ""
-      topic: "telemetry"
+  kafka:
+    # -- Kafka bootstrap servers. In tests, use "provider-broker:9092" for consumers or "proxy-provider:30001" for providers (proxied).
+    bootstrapServers: ""
+    topic: "telemetry"
+    sasl:
       # -- Username used for Kafka SASL/PLAIN authentication (sent as the NameCallback value)
       username: "dev-telemetry"
       # -- Password used for Kafka SASL/PLAIN authentication
       password: "password"
+    ssl:
+      caSecretName: ""
 
   postgresql:
     # -- jdbc url of the database

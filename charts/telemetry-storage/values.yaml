@@ -77,17 +77,12 @@ telemetrystorage:
     bootstrapServers: ""
     topic: "telemetry"
     groupId: "telemetry-storage-group"
-    caSecretName: ""
-    username: ""
-    password: ""
-
-  # Extra environment variables for Kafka TLS/SASL configuration
-  env: {}
-    # DSE_TELEMETRY-STORAGE_KAFKA_SECURITY_PROTOCOL: "SASL_SSL"
-    # DSE_TELEMETRY-STORAGE_KAFKA_SASL_MECHANISM: "PLAIN"
-    # DSE_TELEMETRY-STORAGE_KAFKA_SSL_TRUSTSTORE_LOCATION: "/etc/tls-kafka/ca.crt"
-    # DSE_TELEMETRY-STORAGE_KAFKA_SSL_TRUSTSTORE_TYPE: "PEM"
-  # Kubernetes secret containing the Kafka CA certificate
+    sasl:
+      username: ""
+      password: ""
+    ssl:
+      # Kubernetes secret containing the Kafka CA certificate
+      caSecretName: ""
 
   # -- Postgresql database configuration
   postgresql:
@@ -152,7 +147,12 @@ telemetrystorage:
     # runAsNonRoot: true
     # runAsUser: 1000
   # Extra environment variables that will be pass onto deployment pods
-  env: {}
+  env: { }
+    # Extra environment variables for Kafka TLS/SASL configuration
+    # DSE_TELEMETRYSTORAGE_KAFKA_SECURITY_PROTOCOL: "SASL_SSL"
+    # DSE_TELEMETRYSTORAGE_KAFKA_SASL_MECHANISM: "PLAIN"
+    # DSE_TELEMETRYSTORAGE_KAFKA_SSL_TRUSTSTORE_LOCATION: "/etc/tls-kafka/ca.crt"
+    # DSE_TELEMETRYSTORAGE_KAFKA_SSL_TRUSTSTORE_TYPE: "PEM"
   #  ENV_NAME: value
 
   # "valueFrom" environment variable references that will be added to deployment pods. Name is templated.

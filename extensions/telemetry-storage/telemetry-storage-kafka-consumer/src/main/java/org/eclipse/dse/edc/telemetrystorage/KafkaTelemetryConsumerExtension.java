@@ -91,32 +91,35 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
 
     private TelemetryEventMapper mapper;
 
-    @Setting(key = "dse.telemetry-storage.kafka.bootstrap.servers")
+    @Setting(key = "dse.telemetrystorage.kafka.bootstrap.servers")
     private String bootstrapServers;
 
-    @Setting(required = false, key = "dse.telemetry-storage.kafka.topic", defaultValue = "telemetry")
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.topic", defaultValue = "telemetry")
     private String topic;
 
-    @Setting(required = false, key = "dse.telemetry-storage.kafka.group.id", defaultValue = "telemetry-storage-group")
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.group.id", defaultValue = "telemetry-storage-group")
     private String groupId;
 
-    @Setting(required = false, key = "dse.telemetry-storage.kafka.security.protocol", defaultValue = "PLAINTEXT")
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.security.protocol", defaultValue = "PLAINTEXT")
     private String securityProtocol;
 
-    @Setting(required = false, key = "dse.telemetry-storage.kafka.sasl.mechanism")
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.sasl.mechanism")
     private String saslMechanism;
 
-    @Setting(required = false, key = "dse.telemetry-storage.kafka.username")
-    private String username;
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.sasl.username")
+    private String saslUsername;
 
-    @Setting(required = false, key = "dse.telemetry-storage.kafka.password")
-    private String password;
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.sasl.password")
+    private String saslPassword;
 
-    @Setting(required = false, key = "dse.telemetry-storage.kafka.ssl.truststore.location")
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.ssl.truststore.location")
     private String sslTruststoreLocation;
 
-    @Setting(required = false, key = "dse.telemetry-storage.kafka.ssl.truststore.type", defaultValue = "PEM")
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.ssl.truststore.type", defaultValue = "PEM")
     private String sslTruststoreType;
+
+    @Setting(required = false, key = "dse.telemetrystorage.kafka.ssl.truststore.password")
+    private String sslTruststorePassword;
 
     @Inject
     private TelemetryEventStore store;
@@ -139,7 +142,7 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
     @Override
     public void start() {
         Objects.requireNonNull(bootstrapServers,
-                "Missing required setting: dse.telemetry-storage.kafka.bootstrap.servers");
+                "Missing required setting: dse.telemetrystorage.kafka.bootstrap.servers");
 
         mapper = new TelemetryEventMapper();
         consumer = new KafkaConsumer<>(buildConsumerProperties());
@@ -185,8 +188,8 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
         String jaasConfig = String.format(
                 "%s required username=\"%s\" password=\"%s\";",
                 LOGIN_MODULE,
-                username,
-                password
+                saslUsername,
+                saslPassword
         );
         properties.put(SaslConfigs.SASL_JAAS_CONFIG, jaasConfig);
     }
