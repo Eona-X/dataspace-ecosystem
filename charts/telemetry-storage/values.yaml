@@ -77,6 +77,17 @@ telemetrystorage:
     bootstrapServers: ""
     topic: "telemetry"
     groupId: "telemetry-storage-group"
+    caSecretName: ""
+    username: ""
+    password: ""
+
+  # Extra environment variables for Kafka TLS/SASL configuration
+  env: {}
+    # DSE_TELEMETRY-STORAGE_KAFKA_SECURITY_PROTOCOL: "SASL_SSL"
+    # DSE_TELEMETRY-STORAGE_KAFKA_SASL_MECHANISM: "PLAIN"
+    # DSE_TELEMETRY-STORAGE_KAFKA_SSL_TRUSTSTORE_LOCATION: "/etc/tls-kafka/ca.crt"
+    # DSE_TELEMETRY-STORAGE_KAFKA_SSL_TRUSTSTORE_TYPE: "PEM"
+  # Kubernetes secret containing the Kafka CA certificate
 
   # -- Postgresql database configuration
   postgresql:

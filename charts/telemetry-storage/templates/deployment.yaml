@@ -104,8 +104,21 @@ spec:
           value: {{ .Values.telemetrystorage.kafka.topic | default "telemetry" | quote }}
         - name: "DSE_TELEMETRY-STORAGE_KAFKA_GROUP_ID"
           value: {{ .Values.telemetrystorage.kafka.groupId | default "telemetry-storage-group" | quote }}
+        - name: "DSE_TELEMETRY-STORAGE_KAFKA_SECURITY_PROTOCOL"
+          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRY_STORAGE_KAFKA_SECURITY_PROTOCOL | default "SASL_SSL" | quote }}
+        - name: "DSE_TELEMETRY-STORAGE_KAFKA_SASL_MECHANISM"
+          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRY_STORAGE_KAFKA_SASL_MECHANISM | default "PLAIN" | quote }}
+        - name: "DSE_TELEMETRY-STORAGE_KAFKA_SSL_TRUSTSTORE_LOCATION"
+          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRY_STORAGE_KAFKA_SSL_TRUSTSTORE_LOCATION | default "/etc/tls-kafka/ca.crt" | quote }}
+        - name: "DSE_TELEMETRY-STORAGE_KAFKA_SSL_TRUSTSTORE_TYPE"
+          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRY_STORAGE_KAFKA_SSL_TRUSTSTORE_TYPE | default "PEM" | quote }}
+        - name: "DSE_TELEMETRY-STORAGE_KAFKA_USERNAME"
+          value: {{ .Values.telemetrystorage.kafka.username | default "admin" | quote }}
+        - name: "DSE_TELEMETRY-STORAGE_KAFKA_PASSWORD"
+          value: {{ .Values.telemetrystorage.kafka.password | default "admin" | quote }}
 
-        ##############
+
+          ##############
         # POSTGRESQL #
         ##############
         - name: "EDC_SQL_SCHEMA_AUTOCREATE"
@@ -223,6 +236,9 @@ spec:
         - name: shared-volume
           readOnly: true
           mountPath: /shared
+        - name: kafka-ca-volume
+          mountPath: /etc/tls-kafka
+          readOnly: true
       volumes:
       - name: config
         configMap:
@@ -236,6 +252,12 @@ spec:
             path: config.properties
       - name: shared-volume
         emptyDir: { }
+      - name: kafka-ca-volume
+        secret:
+          secretName: {{ .Values.telemetrystorage.kafka.caSecretName | default "kafka-ca-secret" }}
+          items:
+          - key: ca.crt
+            path: ca.crt
       - name: cert-volume
         secret:
           secretName: {{  required ".Values.telemetrystorage.vault.hashicorp.cert.secretName is required" .Values.telemetrystorage.vault.hashicorp.cert.secretName }}
