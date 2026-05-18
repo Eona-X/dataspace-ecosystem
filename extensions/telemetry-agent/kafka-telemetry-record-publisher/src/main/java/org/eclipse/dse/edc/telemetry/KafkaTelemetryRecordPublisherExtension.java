@@ -34,32 +34,32 @@ public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension 
     private static final String ACKS_ALL = "all";
     private static final int MAX_RETRIES = 3;
 
-    @Setting(key = "dse.telemetry-service.kafka.bootstrap.servers")
+    @Setting(key = "dse.telemetryagent.kafka.bootstrap.servers")
     private String bootstrapServers;
 
-    @Setting(required = false, key = "dse.telemetry-service.kafka.topic", defaultValue = "telemetry")
+    @Setting(required = false, key = "dse.telemetryagent.kafka.topic", defaultValue = "telemetry")
     private String topic;
 
-    @Setting(required = false, key = "dse.telemetry-service.kafka.security.protocol", defaultValue = "SASL_PLAINTEXT")
+    @Setting(required = false, key = "dse.telemetryagent.kafka.security.protocol", defaultValue = "SASL_PLAINTEXT")
     private String securityProtocol;
 
-    @Setting(required = false, key = "dse.telemetry-service.kafka.ssl.truststore.location")
-    private String sslTruststoreLocation;
-
-    @Setting(required = false, key = "dse.telemetry-service.kafka.ssl.truststore.password")
-    private String sslTruststorePassword;
-
-    @Setting(required = false, key = "dse.telemetry-service.kafka.ssl.truststore.type", defaultValue = "JKS")
-    private String sslTruststoreType;
-
-    @Setting(required = false, key = "dse.telemetry-service.kafka.sasl.mechanism", defaultValue = "PLAIN")
+    @Setting(required = false, key = "dse.telemetryagent.kafka.sasl.mechanism", defaultValue = "PLAIN")
     private String saslMechanism;
 
-    @Setting(required = true, key = "dse.telemetry-service.kafka.username")
-    private String username;
+    @Setting(required = true, key = "dse.telemetryagent.kafka.sasl.username")
+    private String saslUsername;
 
-    @Setting(required = true, key = "dse.telemetry-service.kafka.password")
-    private String password;
+    @Setting(required = true, key = "dse.telemetryagent.kafka.sasl.password")
+    private String saslPassword;
+
+    @Setting(required = false, key = "dse.telemetryagent.kafka.ssl.truststore.location")
+    private String sslTruststoreLocation;
+
+    @Setting(required = false, key = "dse.telemetryagent.kafka.ssl.truststore.type", defaultValue = "PEM")
+    private String sslTruststoreType;
+
+    @Setting(required = false, key = "dse.telemetryagent.kafka.ssl.truststore.password")
+    private String sslTruststorePassword;
 
     @Inject
     private TypeManager typeManager;
@@ -76,7 +76,7 @@ public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension 
 
     @Override
     public void start() {
-        monitor.info("Kafka telemetry publisher extension started for user: " + username);
+        monitor.info("Kafka telemetry publisher extension started for user: " + saslUsername);
     }
 
     @Provider
@@ -131,8 +131,8 @@ public class KafkaTelemetryRecordPublisherExtension implements ServiceExtension 
         String jaasConfig = String.format(
                 "%s required username=\"%s\" password=\"%s\";",
                 LOGIN_MODULE,
-                username,
-                password
+                saslUsername,
+                saslPassword
         );
         properties.put(SaslConfigs.SASL_JAAS_CONFIG, jaasConfig);
         properties.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, SaslPlainCallbackHandler.class.getName());

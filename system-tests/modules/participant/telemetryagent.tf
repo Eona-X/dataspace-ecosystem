@@ -77,17 +77,17 @@ edc.vault.hashicorp.token.scheduled-renew-enabled=false
             }
           }
         },
-        "telemetryservice" : {
-          "kafka" : {
-            "bootstrapServers" : var.kafka_bootstrap_servers,
-            "topic" : var.kafka_topic,
+        "kafka" : {
+          "bootstrapServers" : var.kafka_bootstrap_servers,
+          "topic" : var.kafka_topic,
+          "sasl" : {
             "username" : var.kafka_username,
             "password" : var.kafka_password
           }
         },
         "env" : {
-          "DSE_TELEMETRY-SERVICE_KAFKA_SECURITY_PROTOCOL" : var.participant_name == "consumer" ? "PLAINTEXT" : "SASL_PLAINTEXT",
-          "DSE_TELEMETRY-SERVICE_KAFKA_SASL_MECHANISM" : "PLAIN"
+          "DSE_TELEMETRYAGENT_KAFKA_SECURITY_PROTOCOL" : var.participant_name == "consumer" ? "PLAINTEXT" : "SASL_PLAINTEXT",
+          "DSE_TELEMETRYAGENT_KAFKA_SASL_MECHANISM" : "PLAIN"
         },
 
         "postgresql" : {

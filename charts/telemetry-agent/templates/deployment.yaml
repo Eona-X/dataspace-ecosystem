@@ -149,16 +149,26 @@ spec:
 
             - name: "DSE_AUTHORITY_DID"
               value: {{ .Values.telemetryagent.authority.did | required ".Values.telemetryagent.authority.did is required" | quote }}
-            - name: "DSE_TELEMETRY-SERVICE_KAFKA_BOOTSTRAP_SERVERS"
-              value: {{ .Values.telemetryagent.telemetryservice.kafka.bootstrapServers | required ".Values.telemetryagent.telemetryservice.kafka.bootstrapServers is required" | quote }}
-            - name: "DSE_TELEMETRY-SERVICE_KAFKA_TOPIC"
-              value: {{ .Values.telemetryagent.telemetryservice.kafka.topic | default "telemetry" | quote }}
-            - name: "DSE_TELEMETRY-SERVICE_KAFKA_USERNAME"
-              value: {{ .Values.telemetryagent.telemetryservice.kafka.username | default "dev-telemetry" | quote }}
-            - name: "DSE_TELEMETRY-SERVICE_KAFKA_PASSWORD"
-              value: {{ .Values.telemetryagent.telemetryservice.kafka.password | quote }}
+            - name: "DSE_TELEMETRYAGENT_KAFKA_BOOTSTRAP_SERVERS"
+              value: {{ .Values.telemetryagent.kafka.bootstrapServers | required ".Values.telemetryagent.kafka.bootstrapServers is required" | quote }}
+            - name: "DSE_TELEMETRYAGENT_KAFKA_TOPIC"
+              value: {{ .Values.telemetryagent.kafka.topic | default "telemetry" | quote }}
+            - name: "DSE_TELEMETRYAGENT_KAFKA_SECURITY_PROTOCOL"
+              value: {{ .Values.telemetryagent.env.DSE_TELEMETRYAGENT_KAFKA_SECURITY_PROTOCOL | default "SASL_SSL" | quote }}
+            - name: "DSE_TELEMETRYAGENT_KAFKA_SASL_MECHANISM"
+              value: {{ .Values.telemetryagent.env.DSE_TELEMETRYAGENT_KAFKA_SASL_MECHANISM | default "PLAIN" | quote }}
+            - name: "DSE_TELEMETRYAGENT_KAFKA_SASL_USERNAME"
+              value: {{ .Values.telemetryagent.kafka.sasl.username | default "dev-telemetry" | quote }}
+            - name: "DSE_TELEMETRYAGENT_KAFKA_SASL_PASSWORD"
+              value: {{ .Values.telemetryagent.kafka.sasl.password | quote }}
+            - name: "DSE_TELEMETRYAGENT_KAFKA_SSL_TRUSTSTORE_LOCATION"
+              value: {{ .Values.telemetryagent.env.DSE_TELEMETRYAGENT_KAFKA_SSL_TRUSTSTORE_LOCATION | default "/etc/tls-kafka/ca.crt" | quote }}
+            - name: "DSE_TELEMETRYAGENT_KAFKA_SSL_TRUSTSTORE_TYPE"
+              value: {{ .Values.telemetryagent.env.DSE_TELEMETRYAGENT_KAFKA_SSL_TRUSTSTORE_TYPE | default "PEM" | quote }}
+            - name: "DSE_TELEMETRYAGENT_KAFKA_SSL_TRUSTSTORE_PASSWORD"
+              value: {{ .Values.telemetryagent.env.DSE_TELEMETRYAGENT_KAFKA_SSL_TRUSTSTORE_PASSWORD | quote }}
 
-            #############
+                #############
             # SSI / DID #
             #############
             - name: "EDC_IH_IAM_ID"
@@ -230,6 +240,9 @@ spec:
             - name: shared-volume
               readOnly: true
               mountPath: /shared
+            - name: kafka-ca-volume
+              mountPath: /etc/tls-kafka
+              readOnly: true
       volumes:
         - name: config
           configMap:
@@ -246,6 +259,12 @@ spec:
         - name: cert-volume
           secret:
             secretName: {{  required ".Values.telemetryagent.vault.hashicorp.cert.secretName is required" .Values.telemetryagent.vault.hashicorp.cert.secretName }}
+        - name: kafka-ca-volume
+          secret:
+            secretName: {{ .Values.telemetryagent.kafka.ssl.caSecretName | default "kafka-ca-secret" }}
+            items:
+              - key: ca.crt
+                path: ca.crt
       {{- with .Values.telemetryagent.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

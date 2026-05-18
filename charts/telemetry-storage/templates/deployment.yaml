@@ -98,25 +98,26 @@ spec:
         ############################
         ## KAFKA CONSUMER CONFIG  ##
         ############################
-        - name: "DSE_TELEMETRY-STORAGE_KAFKA_BOOTSTRAP_SERVERS"
+        - name: "DSE_TELEMETRYSTORAGE_KAFKA_BOOTSTRAP_SERVERS"
           value: {{ .Values.telemetrystorage.kafka.bootstrapServers | required ".Values.telemetrystorage.kafka.bootstrapServers is required" | quote }}
-        - name: "DSE_TELEMETRY-STORAGE_KAFKA_TOPIC"
+        - name: "DSE_TELEMETRYSTORAGE_KAFKA_TOPIC"
           value: {{ .Values.telemetrystorage.kafka.topic | default "telemetry" | quote }}
-        - name: "DSE_TELEMETRY-STORAGE_KAFKA_GROUP_ID"
+        - name: "DSE_TELEMETRYSTORAGE_KAFKA_GROUP_ID"
           value: {{ .Values.telemetrystorage.kafka.groupId | default "telemetry-storage-group" | quote }}
-        - name: "DSE_TELEMETRY-STORAGE_KAFKA_SECURITY_PROTOCOL"
-          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRY_STORAGE_KAFKA_SECURITY_PROTOCOL | default "SASL_SSL" | quote }}
-        - name: "DSE_TELEMETRY-STORAGE_KAFKA_SASL_MECHANISM"
-          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRY_STORAGE_KAFKA_SASL_MECHANISM | default "PLAIN" | quote }}
-        - name: "DSE_TELEMETRY-STORAGE_KAFKA_SSL_TRUSTSTORE_LOCATION"
-          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRY_STORAGE_KAFKA_SSL_TRUSTSTORE_LOCATION | default "/etc/tls-kafka/ca.crt" | quote }}
-        - name: "DSE_TELEMETRY-STORAGE_KAFKA_SSL_TRUSTSTORE_TYPE"
-          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRY_STORAGE_KAFKA_SSL_TRUSTSTORE_TYPE | default "PEM" | quote }}
-        - name: "DSE_TELEMETRY-STORAGE_KAFKA_USERNAME"
-          value: {{ .Values.telemetrystorage.kafka.username | default "admin" | quote }}
-        - name: "DSE_TELEMETRY-STORAGE_KAFKA_PASSWORD"
-          value: {{ .Values.telemetrystorage.kafka.password | default "admin" | quote }}
-
+        - name: "DSE_TELEMETRYSTORAGE_KAFKA_SECURITY_PROTOCOL"
+          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRYSTORAGE_KAFKA_SECURITY_PROTOCOL | default "SASL_SSL" | quote }}
+        - name: "DSE_TELEMETRYSTORAGE_KAFKA_SASL_MECHANISM"
+          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRYSTORAGE_KAFKA_SASL_MECHANISM | default "PLAIN" | quote }}
+        - name: "DSE_TELEMETRYSTORAGE_KAFKA_SASL_USERNAME"
+          value: {{ .Values.telemetrystorage.kafka.sasl.username | default "admin" | quote }}
+        - name: "DSE_TELEMETRYSTORAGE_KAFKA_SASL_PASSWORD"
+          value: {{ .Values.telemetrystorage.kafka.sasl.password | default "admin" | quote }}
+        - name: "DSE_TELEMETRYSTORAGE_KAFKA_SSL_TRUSTSTORE_LOCATION"
+          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRYSTORAGE_KAFKA_SSL_TRUSTSTORE_LOCATION | default "/etc/tls-kafka/ca.crt" | quote }}
+        - name: "DSE_TELEMETRYSTORAGE_KAFKA_SSL_TRUSTSTORE_TYPE"
+          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRYSTORAGE_KAFKA_SSL_TRUSTSTORE_TYPE | default "PEM" | quote }}
+        - name: "DSE_TELEMETRYSTORAGE_KAFKA_SSL_TRUSTSTORE_PASSWORD"
+          value: {{ .Values.telemetrystorage.env.DSE_TELEMETRYSTORAGE_KAFKA_SSL_TRUSTSTORE_PASSWORD | quote }}
 
           ##############
         # POSTGRESQL #
@@ -254,7 +255,7 @@ spec:
         emptyDir: { }
       - name: kafka-ca-volume
         secret:
-          secretName: {{ .Values.telemetrystorage.kafka.caSecretName | default "kafka-ca-secret" }}
+          secretName: {{ .Values.telemetrystorage.kafka.ssl.caSecretName | default "kafka-ca-secret" }}
           items:
           - key: ca.crt
             path: ca.crt

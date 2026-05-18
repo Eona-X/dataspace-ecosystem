@@ -40,6 +40,10 @@ resource "helm_release" "telemetrystorage" {
           "bootstrapServers" : var.kafka_bootstrap_servers,
           "topic" : var.kafka_topic,
           "groupId" : var.kafka_group_id
+          "sasl" : {
+            "username" : "username"
+            "password" : "password"
+          }
         },
 
         "logging" : <<EOT
