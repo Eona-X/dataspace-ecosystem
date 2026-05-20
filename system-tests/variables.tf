@@ -24,15 +24,16 @@ variable "environment" {
   default     = ""
 }
 
-variable "account_secret_azurite" {
-  default     = "pass"
-  description = "Account secret for event hub"
-  sensitive   = true
+
+variable "minio_access_key" {
+  default     = "minioadmin"
+  description = "Access key for MinIO"
 }
 
-variable "account_name_azurite" {
-  default     = "user"
-  description = "Account name for event hub"
+variable "minio_secret_key" {
+  default     = "minioadmin"
+  description = "Secret key for MinIO"
+  sensitive   = true
 }
 
 variable "devbox-registry" {
@@ -65,6 +66,20 @@ variable "auth_mechanism" {
     condition     = contains(["PLAIN", "OAUTHBEARER"], var.auth_mechanism)
     error_message = "Authentication mechanism must be either PLAIN or OAUTHBEARER."
   }
+}
+
+variable "auth_tenant_id" {
+  description = "OAuth2 tenant ID for authentication"
+  type        = string
+  default     = "<tenant-id>"
+  sensitive   = false
+}
+
+variable "auth_client_id" {
+  description = "Application client ID for authentication"
+  type        = string
+  default     = "<client-id>"
+  sensitive   = false
 }
 
 variable "auth_static_users" {

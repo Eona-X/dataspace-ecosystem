@@ -1,7 +1,5 @@
 package org.eclipse.edc.dse.telemetry.api;
 
-import com.azure.storage.blob.models.BlobErrorCode;
-import com.azure.storage.blob.models.BlobStorageException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +15,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.eclipse.edc.dse.telemetry.services.ReportUtil;
+import org.eclipse.edc.dse.telemetry.services.report.ReportGeneratorSchedulerExtension;
 import org.eclipse.edc.spi.monitor.Monitor;
 
 import java.io.InputStream;
@@ -26,7 +25,6 @@ import java.util.List;
 import java.util.stream.StreamSupport;
 
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
-import static org.eclipse.edc.dse.telemetry.services.report.ReportGeneratorSchedulerExtension.azureStorageService;
 import static org.eclipse.edc.dse.telemetry.services.report.ReportGeneratorSchedulerExtension.scheduler;
 
 @Consumes(APPLICATION_JSON)
@@ -98,8 +96,8 @@ public class TelemetryCsvManagerApiController implements TelemetryCsvManagerApi 
             String objectPath = ReportUtil.getObjectPath(dateTime, reportFilename, false);
             byte[] csvData = getReportFromRemoteStorage(objectPath);
             if (csvData == null) {
-                this.monitor.warning("No report found at path: " + objectPath + " for participant " + participantName + " month " + month + " year " + year);
-                return Response.status(Response.Status.NOT_FOUND).entity("No report found for specified period").build();
+                this.monitor.warning("No report found at storage path: " + objectPath + " for participant " + participantName + " month " + month + " year " + year);
+                return Response.status(Response.Status.NOT_FOUND).entity("No report found for specified period in storage").build();
             } else {
                 this.monitor.info("Report successfully retrieved for participant: " + participantName);
                 return Response.ok(csvData)
@@ -163,16 +161,6 @@ public class TelemetryCsvManagerApiController implements TelemetryCsvManagerApi 
         try {
             scheduler.triggerGenerationForParticipant(participantName, LocalDateTime.of(year, month, 1, 0, 0), generateCounterpartyReport);
             return Response.status(Response.Status.CREATED).build();
-        } catch (BlobStorageException e) {
-            if (e.getErrorCode() == BlobErrorCode.BLOB_ALREADY_EXISTS) {
-                String conflictMessage = "This report already exists, participant: " +
-                        reportGenerationRequest.participantName() + " month: " + reportGenerationRequest.month() +
-                        " year: " + reportGenerationRequest.year();
-                this.monitor.warning(conflictMessage);
-                return Response.status(Response.Status.CONFLICT).entity(conflictMessage).build();
-            }
-            monitor.severe("BlobStorageException occurred", e);
-            throw e;
         } catch (Exception e) {
             this.monitor.severe("Unexpected error during report generation", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("Generation failed").build();
@@ -181,7 +169,12 @@ public class TelemetryCsvManagerApiController implements TelemetryCsvManagerApi 
 
     private byte[] getReportFromRemoteStorage(String objectPath) {
         monitor.debug("Attempting to download report from storage at path: " + objectPath);
-        try (InputStream downloadedInputStream = azureStorageService.download(objectPath)) {
+        var storageService = ReportGeneratorSchedulerExtension.storageService;
+        if (storageService == null) {
+            this.monitor.severe("Storage service not initialized");
+            return null;
+        }
+        try (InputStream downloadedInputStream = storageService.download(objectPath)) {
             return downloadedInputStream.readAllBytes();
         } catch (Exception e) {
             this.monitor.warning("Exception thrown while getting report: " + e);

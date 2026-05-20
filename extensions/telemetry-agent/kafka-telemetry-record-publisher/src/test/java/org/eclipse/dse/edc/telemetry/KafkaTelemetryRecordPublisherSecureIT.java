@@ -136,8 +136,6 @@ class KafkaTelemetryRecordPublisherSecureIT {
                 password
         );
         props.put(SaslConfigs.SASL_JAAS_CONFIG, jaasConfig);
-        props.put(SaslConfigs.SASL_LOGIN_CALLBACK_HANDLER_CLASS, SaslPlainCallbackHandler.class.getName());
-        props.put(SaslConfigs.SASL_CLIENT_CALLBACK_HANDLER_CLASS, SaslPlainCallbackHandler.class.getName());
 
         return props;
     }

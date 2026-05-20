@@ -145,21 +145,14 @@ terraform apply -auto-approve
 
 ## Run the tests
 
-As Eventhub uses the `sb://` protocol and Nginx has issues working with it, we can forward the port of the pods to allow
-the system test to connect directly to the Eventhub local pod instances instead of passing through Nginx.
-
-To do this, open a terminal and execute the following `kubectl` command (the terminal needs to stay open during the
-execution of the test, otherwise the port forwarding will not work):
-
-```sh
-kubectl port-forward eventhubs-0 52717:5672
+To allow the system tests to connect directly to the PostgreSQL pod instance, open a terminal and execute the following command (keep it open during the execution of the test):
+```bash
 kubectl port-forward postgresql-0 57521:5432 &
 ```
 
 Afterwards, you can execute the following command to run the tests:
-
 ```bash
 ./gradlew :system-tests:runner:test -DincludeTags="EndToEndTest"
 ```
 
-Note: The tests can only be run once. If you want to rerun them, destroy first the dataspace and then re-deploy it
+Note: The tests can only be run once. If you want to rerun them, destroy first the dataspace and then re-deploy it.

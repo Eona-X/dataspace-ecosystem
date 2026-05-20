@@ -3,19 +3,28 @@ package org.eclipse.edc.dse.telemetry.services.report;
 import org.eclipse.edc.dse.telemetry.model.ParticipantId;
 import org.eclipse.edc.dse.telemetry.model.Report;
 import org.eclipse.edc.dse.telemetry.model.TelemetryEvent;
+import org.eclipse.edc.dse.telemetry.repository.ContractParticipant;
 import org.eclipse.edc.dse.telemetry.repository.ContractStats;
 import org.eclipse.edc.dse.telemetry.repository.ParticipantRepository;
 import org.eclipse.edc.dse.telemetry.repository.ReportRepository;
 import org.eclipse.edc.dse.telemetry.repository.TelemetryEventRepository;
 import org.eclipse.edc.dse.telemetry.services.ReportUtil;
-import org.eclipse.edc.dse.telemetry.services.storage.AzureStorageService;
+import org.eclipse.edc.dse.telemetry.services.storage.ReportStorageService;
+import org.eclipse.edc.dse.telemetry.services.storage.StorageException;
 import org.eclipse.edc.spi.monitor.Monitor;
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.eclipse.edc.dse.telemetry.services.ReportUtil.getObjectPath;
@@ -27,70 +36,51 @@ public class ReportGenerationService {
     private static final int EXPECTED_CONTRACT_PARTIES = 2;
     private static final String DEFAULT_SIZE_VALUE = "0";
     private static final long DEFAULT_EVENT_COUNT = 0L;
+    private static final int MAX_RETRIES = 3;
+    private static final Duration INITIAL_RETRY_DELAY = Duration.ofMillis(500);
+    private static final Duration MAX_RETRY_DELAY = Duration.ofSeconds(30);
+    private static final double RETRY_BACKOFF_FACTOR = 2.0;
 
     private final ParticipantRepository participantRepository;
     private final ReportRepository reportRepository;
     private final TelemetryEventRepository telemetryEventRepository;
-    private final AzureStorageService azureStorageService;
+    private final ReportStorageService storageService;
     private final Monitor monitor;
-
-    // Error report generation was disabled for now since the report already contains the same information
-    //
-    // I'm using thread safe data structure here because there can be concurrent accesses to this list.
-    // Current edge case: We generate a report on the demand at the same time the cron task is generating the monthly report on the background for the same or a different month
-    // Future cases: If we allow the generation of reports via UI in the future this edge case will be a common use case with concurrent accesses of the users
-    //
-    // Warning: There is a design flaw here, if we trigger an on-demand generation and the monthly generation task is running with the exact same month and year and both of them fail the validation,
-    // only one error report will be generated with errors from both. However, the frequency of this use case is almost inexistent, and our main goal is to have generation in-place, validation is secondary.
-    // To tackle this issue and having a kubernetes cronjob, the reports will be tackled in another US -> FDPT-84292
-    // static final Queue<ReportGenerationError> ERRORS = new ConcurrentLinkedQueue<>();
+    private final Clock clock;
+    private final RetryPolicy<String> uploadRetryPolicy;
 
     public ReportGenerationService(Monitor monitor,
                                    ParticipantRepository participantRepository,
                                    ReportRepository reportRepository,
                                    TelemetryEventRepository telemetryEventRepository,
-                                   AzureStorageService azureStorageService) {
+                                   ReportStorageService storageService,
+                                   Clock clock) {
         this.monitor = monitor;
         this.participantRepository = participantRepository;
         this.reportRepository = reportRepository;
         this.telemetryEventRepository = telemetryEventRepository;
-        this.azureStorageService = azureStorageService;
+        this.storageService = storageService;
+        this.clock = clock;
+
+        this.uploadRetryPolicy = RetryPolicy.<String>builder()
+                .handle(StorageException.class)
+                .withBackoff(INITIAL_RETRY_DELAY, MAX_RETRY_DELAY, RETRY_BACKOFF_FACTOR)
+                .withMaxRetries(MAX_RETRIES)
+                .onRetry(e -> monitor.warning("Upload retry attempt " + e.getAttemptCount() + " failed: " + e.getLastException().getMessage()))
+                .build();
     }
-
-    //    public static Queue<ReportGenerationError> getErrors() {
-    //        return ERRORS;
-    //    }
-
-    //    void generateErrorReport(LocalDateTime targetDateTime, Queue<ReportGenerationError> errors) {
-    //        this.monitor.info("Generating error report for " + targetDateTime);
-    //        int targetYear = targetDateTime.getYear();
-    //        int targetMonth = targetDateTime.getMonthValue();
-    //        List<ReportGenerationError> relevantErrors = errors.stream().filter(e -> e.generationTimespanTarget().getMonthValue() == targetMonth && e.generationTimespanTarget().getYear() == targetYear).toList();
-    //        if (relevantErrors.isEmpty()) {
-    //            return;
-    //        }
-    //
-    //        String reportContent = generateCsvErrorReportContent(relevantErrors);
-    //        String fileName = "report_generation_errors_" + targetYear + "_" + targetMonth + ".csv";
-    //        try {
-    //            String path = getObjectPath(true, targetDateTime, fileName);
-    //            this.monitor.info("Uploading error report...");
-    //            azureStorageService.upload(path, reportContent.getBytes(StandardCharsets.UTF_8));
-    //            this.monitor.info("Error report uploaded");
-    //        } catch (Exception e) {
-    //            monitor.severe("Error uploading error report: " + e.getMessage(), e);
-    //        } finally {
-    //            relevantErrors.forEach(errors::remove);
-    //        }
-    //    }
 
     void generatePreviousMonthReportForAllParticipants() {
         List<ParticipantId> participants = participantRepository.findAll();
-        LocalDateTime oneMonthBeforeDate = LocalDateTime.now().minusMonths(1);
+        LocalDateTime oneMonthBeforeDate = LocalDateTime.now(clock).minusMonths(1);
         for (ParticipantId participant : participants) {
-            // By default the cron task should generate the simplified report and the extended report with counterparty info
-            generateReport(participant, oneMonthBeforeDate, false);
-            generateReport(participant, oneMonthBeforeDate, true);
+            try {
+                generateReport(participant, oneMonthBeforeDate, false);
+                generateReport(participant, oneMonthBeforeDate, true);
+            } catch (Exception e) {
+                monitor.severe("Failed to generate report for participant "
+                        + participant.getName() + ", continuing with next.", e);
+            }
         }
     }
 
@@ -111,92 +101,130 @@ public class ReportGenerationService {
         return participantRepository.findByParticipantName(participantName);
     }
 
-    /*
-     * This implementation assumes that the report generation is triggered some days after the beginning of the next month,
-     * so that all events for the previous month are already ingested. If this is not the case and telemetry events are still being stored while
-     * the report generation is happening, we might need to start a transaction before doing all the reads and commit it only after saving all the reports,
-     * to ensure that no new events are added in the meantime. As this is not the case for now, I only wrapped the report saving inside a transaction.
-     * */
     public void generateReport(ParticipantId participant, LocalDateTime targetDateTime, boolean includeCounterpartyInfo) {
+        monitor.debug("Generating report for participant " + participant.getName());
+        int month = targetDateTime.getMonthValue();
+        int year = targetDateTime.getYear();
+
+        String fileName = ReportUtil.generateReportFileName(participant.getName(), targetDateTime, includeCounterpartyInfo);
+        String path = getObjectPath(targetDateTime, fileName, includeCounterpartyInfo);
+
         try {
-            this.monitor.debug("Generating report for participant " + participant.getName());
-            generateCsv(participant, targetDateTime, includeCounterpartyInfo);
-            this.monitor.debug("Report generated");
-        } catch (Exception e) {
-            monitor.severe("Error generating report for participant " + participant.getName() + ": " + e.getMessage(), e);
+            String csvContent = buildCsvContent(participant, month, year, includeCounterpartyInfo);
+            String objectUrl = uploadReport(path, csvContent);
+            saveReportMetadata(participant, targetDateTime, fileName, objectUrl, month, year);
+            monitor.info("Report finalized for participant: " + participant.getName());
+        } catch (StorageException e) {
+            monitor.severe("Failed to upload report " + fileName + " to remote storage", e);
             throw e;
         }
     }
 
-    void generateCsv(ParticipantId participant, LocalDateTime targetDateTime, boolean includeCounterpartyInfo) {
-        monitor.info("Generating csv for participant " + participant.getName());
-        int month = targetDateTime.getMonthValue();
-        int year = targetDateTime.getYear();
-
+    private String buildCsvContent(ParticipantId participant, int month, int year, boolean includeCounterpartyInfo) {
         List<ContractStats> contractStats = telemetryEventRepository.findStatsGroupedByContractIdAndStatusCode(participant.getId(), month, year);
         List<String> csvLines = collectCsvEntryInfo(participant, contractStats, month, year, includeCounterpartyInfo);
+        return ReportUtil.generateCsvReportContent(csvLines, includeCounterpartyInfo);
+    }
 
-        List<TelemetryEvent> events = telemetryEventRepository.findByParticipantIdForMonth(participant.getId(), targetDateTime.getMonthValue(), targetDateTime.getYear());
-        String csvContent = ReportUtil.generateCsvReportContent(csvLines, includeCounterpartyInfo);
-        String fileName = ReportUtil.generateReportFileName(participant.getName(), targetDateTime, includeCounterpartyInfo);
-        String path = getObjectPath(targetDateTime, fileName, includeCounterpartyInfo);
+    private String uploadReport(String path, String csvContent) {
         monitor.debug("Uploading report to path " + path);
-        String objectUrl = azureStorageService.upload(path, csvContent.getBytes(StandardCharsets.UTF_8));
+        String objectUrl = uploadWithRetry(path, csvContent.getBytes(StandardCharsets.UTF_8));
         monitor.debug("Report uploaded to " + objectUrl);
-        // We should implement a retry mechanism here FDPT-84156
-        if (objectUrl != null) {
-            // I save the report only at the end to avoid rollback if the upload failed
-            Report report = new Report(fileName, objectUrl, participant);
-            report.setTelemetryEvents(events);
-            reportRepository.saveTransactional(report);
+        return objectUrl;
+    }
+
+    private void saveReportMetadata(ParticipantId participant, LocalDateTime targetDateTime, String fileName, String objectUrl, int month, int year) {
+        Report report = new Report(fileName, objectUrl, participant);
+        report.setTimestamp(targetDateTime);
+
+        List<TelemetryEvent> events = telemetryEventRepository.findByParticipantIdForMonth(participant.getId(), month, year);
+        report.setTelemetryEvents(events);
+
+        reportRepository.saveTransactional(report);
+    }
+
+    private String uploadWithRetry(String path, byte[] data) {
+        try {
+            return Failsafe.with(uploadRetryPolicy)
+                    .get(() -> storageService.upload(path, data));
+        } catch (StorageException e) {
+            monitor.severe("Failed to upload report after " + MAX_RETRIES + " attempts: " + path, e);
+            throw e;
         }
     }
 
     private List<String> collectCsvEntryInfo(ParticipantId participant, List<ContractStats> contractStats, int month, int year, boolean includeCounterpartyInfo) {
         monitor.debug(() -> String.format("Building report for participant %s %s counterparty info", participant.getName(), includeCounterpartyInfo ? "with" : "without"));
 
+        Map<String, List<ParticipantId>> participantsByContractId = fetchParticipantsMap(contractStats);
+
         return includeCounterpartyInfo
-                ? buildExtendedReportCsv(participant, contractStats, month, year)
-                : buildReportCsv(participant, contractStats);
+                ? buildExtendedReportCsv(participant, contractStats, participantsByContractId, month, year)
+                : buildReportCsv(participant, contractStats, participantsByContractId);
     }
 
-    private List<String> buildExtendedReportCsv(ParticipantId participant, List<ContractStats> contractStats, int month, int year) {
-        Map<String, List<ParticipantId>> contractPartiesMap = fetchContractPartiesMap(contractStats);
+    private List<String> buildExtendedReportCsv(ParticipantId participant, List<ContractStats> contractStats,
+                                                Map<String, List<ParticipantId>> participantsByContractId, int month, int year) {
 
+        Map<String, CounterpartyInfo> counterpartyInfoByContractId =
+                resolveCounterpartyInfo(participant, contractStats, participantsByContractId);
+
+        Map<StatsKey, ContractStats> counterpartyStatsIndex =
+                resolveCounterpartyStats(counterpartyInfoByContractId, month, year);
+
+        return buildExtendedCsvLines(participant, contractStats, counterpartyInfoByContractId, counterpartyStatsIndex);
+    }
+
+    private Map<String, CounterpartyInfo> resolveCounterpartyInfo(ParticipantId participant,
+                                                                  List<ContractStats> contractStats,
+                                                                  Map<String, List<ParticipantId>> participantsByContractId) {
+        return contractStats.stream()
+                .collect(Collectors.toMap(
+                        ContractStats::contractId,
+                        cs -> extractCounterpartyInfo(
+                                participant,
+                                participantsByContractId.getOrDefault(cs.contractId(), List.of()),
+                                cs.contractId()),
+                        (existing, duplicate) -> existing
+                ));
+    }
+
+    private Map<StatsKey, ContractStats> resolveCounterpartyStats(Map<String, CounterpartyInfo> counterpartyInfoByContractId,
+                                                                  int month, int year) {
+        Set<String> counterpartyIds = counterpartyInfoByContractId.values().stream()
+                .map(CounterpartyInfo::id)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        return buildCounterpartyStatsIndex(counterpartyIds, month, year);
+    }
+
+    private List<String> buildExtendedCsvLines(ParticipantId participant,
+                                               List<ContractStats> contractStats,
+                                               Map<String, CounterpartyInfo> counterpartyInfoByContractId,
+                                               Map<StatsKey, ContractStats> counterpartyStatsIndex) {
         List<String> csvLines = new ArrayList<>(contractStats.size());
-
         for (ContractStats contractStat : contractStats) {
             String contractId = contractStat.contractId();
-            List<ParticipantId> contractParties = contractPartiesMap.getOrDefault(contractId, List.of());
+            CounterpartyInfo counterpartyInfo = counterpartyInfoByContractId.get(contractId);
 
-            CounterpartyInfo counterpartyInfo = extractCounterpartyInfo(participant, contractParties, contractId);
-            ContractStats counterPartyContractStats = fetchCounterpartyStats(
-                    counterpartyInfo.id(),
-                    month,
-                    year,
-                    contractId,
-                    contractStat.responseStatus()
-            );
+            StatsKey statsKey = new StatsKey(counterpartyInfo.id(), contractId, contractStat.responseStatus());
+            ContractStats counterPartyContractStats = counterpartyStatsIndex.getOrDefault(
+                    statsKey, createEmptyStats(contractId));
 
             csvLines.add(buildExtendedCsvEntryRow(
-                    contractStat,
-                    participant.getName(),
-                    counterpartyInfo.name(),
-                    counterPartyContractStats
-            ));
+                    contractStat, participant.getName(), counterpartyInfo.name(), counterPartyContractStats));
         }
-
         return csvLines;
     }
 
-    private List<String> buildReportCsv(ParticipantId participant, List<ContractStats> contractStats) {
-        Map<String, List<ParticipantId>> contractPartiesMap = fetchContractPartiesMap(contractStats);
-
+    private List<String> buildReportCsv(ParticipantId participant, List<ContractStats> contractStats,
+                                        Map<String, List<ParticipantId>> participantsByContractId) {
         List<String> csvLines = new ArrayList<>(contractStats.size());
 
         for (ContractStats contractStat : contractStats) {
             String contractId = contractStat.contractId();
-            List<ParticipantId> contractParties = contractPartiesMap.getOrDefault(contractId, List.of());
+            List<ParticipantId> contractParties = participantsByContractId.getOrDefault(contractId, List.of());
 
             CounterpartyInfo counterpartyInfo = extractCounterpartyInfo(participant, contractParties, contractId);
             csvLines.add(buildCsvEntryRow(contractStat, counterpartyInfo.name()));
@@ -205,13 +233,19 @@ public class ReportGenerationService {
         return csvLines;
     }
 
-    private Map<String, List<ParticipantId>> fetchContractPartiesMap(List<ContractStats> contractStats) {
-        return contractStats.stream()
+    private Map<String, List<ParticipantId>> fetchParticipantsMap(List<ContractStats> contractStats) {
+        List<String> contractIds = contractStats.stream()
                 .map(ContractStats::contractId)
                 .distinct()
-                .collect(Collectors.toMap(
-                        contractId -> contractId,
-                        telemetryEventRepository::findContractParties
+                .collect(Collectors.toList());
+
+        List<ContractParticipant> results = telemetryEventRepository.findParticipantsByContractIds(contractIds);
+
+        return results.stream()
+                .distinct()
+                .collect(Collectors.groupingBy(
+                        ContractParticipant::contractId,
+                        Collectors.mapping(ContractParticipant::participant, Collectors.toList())
                 ));
     }
 
@@ -231,26 +265,23 @@ public class ReportGenerationService {
                 : contractParties.get(0);
     }
 
-    private ContractStats fetchCounterpartyStats(String counterpartyId, int month, int year, String contractId, Integer responseStatus) {
-        if (counterpartyId == null) {
-            return createEmptyStats(contractId);
+    private Map<StatsKey, ContractStats> buildCounterpartyStatsIndex(Set<String> counterpartyIds, int month, int year) {
+        if (counterpartyIds.isEmpty()) {
+            return Map.of();
         }
 
-        ContractStats stats = telemetryEventRepository.findStatsForContractIdAndStatusCodeGroupedByContractIdAndStatusCode(
-                counterpartyId,
-                month,
-                year,
-                contractId,
-                responseStatus
-        );
+        List<ContractStats> allStats = telemetryEventRepository.findStatsForParticipants(
+                new ArrayList<>(counterpartyIds), month, year);
 
-        if (stats == null) {
-            monitor.warning(() -> String.format("No data found for counterparty %s, contract %s, month %d, year %d", counterpartyId, contractId, month, year));
-            return createEmptyStats(contractId);
+        Map<StatsKey, ContractStats> index = new HashMap<>(allStats.size());
+        for (ContractStats stats : allStats) {
+            StatsKey key = new StatsKey(stats.participantId(), stats.contractId(), stats.responseStatus());
+            index.put(key, stats);
         }
-
-        return stats;
+        return index;
     }
+
+    private record StatsKey(String participantId, String contractId, Integer statusCode) {}
 
     private ContractStats createEmptyStats(String contractId) {
         return new ContractStats(contractId, null, null, null);
@@ -300,49 +331,4 @@ public class ReportGenerationService {
         double kb = bytes / 1024.0;
         return String.format("%.2f", kb);
     }
-
-
-    // The validation and error generation was disabled for now since the report already contains the same information
-    //
-    //    Set<String> validateProducerConsumerData(ParticipantId participant, List<ContractStats> contractStats, LocalDateTime targetDateTime) {
-    //        int month = targetDateTime.getMonthValue();
-    //        int year = targetDateTime.getYear();
-    //        Set<String> discrepancies = new HashSet<>();
-    //        for (ContractStats participantContractStat : contractStats) {
-    //            String contractId = participantContractStat.contractId();
-    //            List<ParticipantId> contractParties = telemetryEventRepository.findContractParties(contractId);
-    //            if (contractParties.size() == 2) {
-    //                ParticipantId partyId = contractParties.get(0);
-    //                ParticipantId counterPartyId = contractParties.get(1);
-    //                String counterpartyId = participant.getId().equals(partyId.getId()) ? counterPartyId.getId() : partyId.getId();
-    //                ContractStats counterpartyStat = telemetryEventRepository.findContractStatsForContractIdForMonthByContractIdAndStatusCode(counterpartyId, month, year, contractId);
-    //                if (counterpartyStat == null) {
-    //                    // Covers edge case in which no data is found on the counterparty side
-    //                    monitor.warning("No data found for counterparty " + counterpartyId + " contract " + contractId + " month " + month + " year " + year);
-    //                    ERRORS.add(new ReportGenerationError(targetDateTime, contractId, participant.getId(), "N/A", participantContractStat.msgSize(), null, participantContractStat.eventCount(),
-    //                            null, "No data found for counterparty " + counterpartyId + " contract " + counterpartyId));
-    //                    discrepancies.add(contractId);
-    //                } else {
-    //                    boolean msgSizeMatches = Objects.equals(counterpartyStat.msgSize(), participantContractStat.msgSize());
-    //                    boolean eventCountMatches = Objects.equals(counterpartyStat.eventCount(), participantContractStat.eventCount());
-    //                    if (!(msgSizeMatches && eventCountMatches)) {
-    //                        String errorMessage = ReportUtil.generateErrorMessage(2, msgSizeMatches, eventCountMatches);
-    //                        String counterpartyName = participant.getId().equals(partyId.getId()) ? counterPartyId.getName() : partyId.getName();
-    //                        monitor.warning("Discrepancy found for contract " + contractId + " between participant " + participant.getName() + " and counterparty " + counterpartyName + " : " + errorMessage);
-    //                        ERRORS.add(new ReportGenerationError(targetDateTime, contractId, participant.getId(), counterpartyId, participantContractStat.msgSize(), counterpartyStat.msgSize(), participantContractStat.eventCount(),
-    //                                counterpartyStat.eventCount(), errorMessage));
-    //                        discrepancies.add(contractId);
-    //                    }
-    //                }
-    //            } else {
-    //                monitor.warning("Contract " + contractId + " does not have exactly 2 parties, found: " + contractParties.size());
-    //                String errorMessage = ReportUtil.generateErrorMessage(contractParties.size(), false, false);
-    //                ERRORS.add(new ReportGenerationError(targetDateTime, contractId, participant.getId(), "N/A", participantContractStat.msgSize(), null, participantContractStat.eventCount(), null, errorMessage));
-    //                discrepancies.add(contractId);
-    //            }
-    //        }
-    //        return discrepancies;
-    //    }
-
-
 }

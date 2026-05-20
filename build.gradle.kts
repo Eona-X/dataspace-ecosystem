@@ -55,7 +55,7 @@ allprojects {
 subprojects {
     afterEvaluate {
         val vaultType: String = project.findProperty("vaultType") as? String ?: "hashicorp"
-        
+
         // Skip building Docker images for non-selected vault variants
         val shouldSkipVaultVariant = when {
             vaultType == "both" -> false  // Build all variants when vaultType=both
@@ -165,14 +165,14 @@ subprojects {
             loadToKindTask.configure {
                 dependsOn(podmanTask)
             }
-            
+
             val dockerTask: DockerBuildImage = tasks.create("dockerize", DockerBuildImage::class) {
                 project.plugins.apply("com.bmuschko.docker-remote-api")
-                
+
                 val imageTag = project.findProperty("imageTag")?.toString() ?: "latest"
                 val registryHost = project.findProperty("registryHost")?.toString() ?: "localhost"
                 val registryNs = project.findProperty("registryNs")?.toString() ?: "local"
-                
+
                 images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
                 images.add("${registryHost}/${registryNs}/${project.name}:latest")
                 // specify platform with the -Dplatform flag:
@@ -193,18 +193,18 @@ subprojects {
                     group = "distribution"
                     description = "Push Docker image to registry"
                     project.plugins.apply("com.bmuschko.docker-remote-api")
-                    
+
                     val imageTag = project.findProperty("imageTag")?.toString() ?: "latest"
                     val registryHost = project.findProperty("registryHost")?.toString() ?: "localhost"
                     val registryNs = project.findProperty("registryNs")?.toString() ?: "local"
-                    
+
                     images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
                     images.add("${registryHost}/${registryNs}/${project.name}:latest")
                 }
                 // Ensure push happens after build
                 dockerPushTask.dependsOn(dockerTask)
             }
-                
+
 
         }
     }

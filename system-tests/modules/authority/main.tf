@@ -54,6 +54,17 @@ resource "kubernetes_secret" "billing-db-user-credentials" {
   }
 }
 
+resource "kubernetes_secret" "minio-credentials" {
+  metadata {
+    name = "minio-credentials"
+  }
+
+  data = {
+    "access-key" = var.minio_access_key
+    "secret-key" = var.minio_secret_key
+  }
+}
+
 module "vault" {
   source = "../vault"
 

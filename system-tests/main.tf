@@ -104,8 +104,8 @@ module "authority" {
   db_server_fqdn                         = module.postgres.postgres_server_fqdn
   postgres_admin_credentials_secret_name = module.postgres.postgres_admin_credentials_secret_name
   environment                            = var.environment
-  account_name_azurite                   = var.account_name_azurite
-  account_secret_azurite                 = var.account_secret_azurite
+  minio_access_key                       = var.minio_access_key
+  minio_secret_key                       = var.minio_secret_key
   devbox-registry                        = var.devbox-registry
   devbox-registry-cred                   = var.devbox-registry-cred
 

@@ -35,7 +35,7 @@ class TelemetryEventTest {
         event.setId(id);
         event.setContractId(contractId);
         event.setParticipant(participant);
-        event.setResponseStatusCode(statusCode);
+        event.setResponseStatus(statusCode);
         event.setMsgSize(msgSize);
         event.setCsvReport(report);
         event.setTimestamp(timestamp);
@@ -43,7 +43,7 @@ class TelemetryEventTest {
         assertEquals(id, event.getId());
         assertEquals(contractId, event.getContractId());
         assertEquals(participant, event.getParticipant());
-        assertEquals(statusCode, event.getResponseStatusCode());
+        assertEquals(statusCode, event.getResponseStatus());
         assertEquals(msgSize, event.getMsgSize());
         assertEquals(report, event.getCsvReport());
         assertEquals(timestamp, event.getTimestamp());
@@ -58,7 +58,7 @@ class TelemetryEventTest {
         event1.setId("id1");
         event1.setContractId("contract1");
         event1.setParticipant(participant);
-        event1.setResponseStatusCode(200);
+        event1.setResponseStatus(200);
         event1.setMsgSize(500);
         event1.setCsvReport(report);
         event1.setTimestamp(timestamp);
@@ -67,7 +67,7 @@ class TelemetryEventTest {
         event2.setId("id1");
         event2.setContractId("contract1");
         event2.setParticipant(participant);
-        event2.setResponseStatusCode(200);
+        event2.setResponseStatus(200);
         event2.setMsgSize(500);
         event2.setCsvReport(report);
         event2.setTimestamp(timestamp);
