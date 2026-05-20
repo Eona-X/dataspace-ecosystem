@@ -1,18 +1,18 @@
 package org.eclipse.edc.test.system;
 
-import com.azure.messaging.eventhubs.EventHubClientBuilder;
-import com.azure.messaging.eventhubs.EventHubConsumerAsyncClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.eclipse.edc.connector.controlplane.contract.spi.types.negotiation.ContractNegotiationStates;
 import org.eclipse.edc.connector.dataplane.spi.response.TransferErrorResponse;
 import org.eclipse.edc.junit.annotations.EndToEndTest;
@@ -36,9 +36,9 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -83,17 +83,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class LocalEndToEndTests extends AbstractEndToEndTests {
 
     public static final String KAFKA_BROKER_PULL = "KafkaBroker-PULL";
-    // TEST-ONLY SECRET: This hardcoded secret is used exclusively for JWT generation in tests.
     public static final String SECRET = "a-string-secret-at-least-256-bits-long";
     public static String dummyJwt;
     public static String dummyJwtWithMultipleRoles;
     public static String dummyJwtNonExistentParticipant;
-    private static final String EVENT_HUB_CONNECTION_STRING_ALIAS = "event-hub-connection-string";
-    private static final String EVENT_HUB_CONNECTION_STRING_SECRET = "Endpoint=sb://eventhubs;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;";
-    private static final String LOCAL_CONSUMER_EVENT_HUB_CONNECTION_STRING = "Endpoint=sb://localhost:52717;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;";
+    private static final String KAFKA_BOOTSTRAP_SERVERS = "localhost:9092";
+    private static final String TELEMETRY_TOPIC = "telemetry";
     private static final String VAULT_TOKEN = "root";
-    private static final String EVENT_HUB_NAMESPACE = "local-eventhub-eventhubs";
-    private static final String EVENT_HUB_NAME = "eh1";
     public static final String REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO = "contract_id,counterparty_name,data_transfer_response_status," +
             "total_transfer_size_in_kB,total_number_of_events";
 
@@ -103,7 +99,7 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final List<String> USED_CONTRACT_ID = new ArrayList<>();
-    private static EventHubConsumerAsyncClient consumer;
+    private static KafkaConsumer<String, String> kafkaConsumer;
 
     private static String kafkacatPod = null;
 
@@ -115,115 +111,78 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
 
     @BeforeAll
     static void beforeAll() {
-        // Print test configuration for debugging
         printConfiguration();
 
-        consumer = new EventHubClientBuilder()
-                .fullyQualifiedNamespace(EVENT_HUB_NAMESPACE)
-                .eventHubName(EVENT_HUB_NAME)
-                .connectionString(LOCAL_CONSUMER_EVENT_HUB_CONNECTION_STRING)
-                .consumerGroup("$default")
-                .buildAsyncConsumerClient();
+        Properties props = new Properties();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, KAFKA_BOOTSTRAP_SERVERS);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "local-e2e-test-group-" + UUID.randomUUID());
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
-        // prepare authority
-        createKey(AUTHORITY, EVENT_HUB_CONNECTION_STRING_ALIAS, EVENT_HUB_CONNECTION_STRING_SECRET);
+        kafkaConsumer = new KafkaConsumer<>(props);
+        kafkaConsumer.subscribe(List.of(TELEMETRY_TOPIC));
+
         AUTHORITY.defineMembershipCredential();
         AUTHORITY.defineDomainCredential();
 
-        // prepare participants
         List.of(PROVIDER, CONSUMER, AUTHORITY).forEach(LocalEndToEndTests::initializeParticipant);
-
         List.of(CONSUMER, PROVIDER, AUTHORITY).forEach(AbstractEndToEndTests::getCredentials);
-        // seed provider data
         seedData();
 
         Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
-
-        dummyJwt = Jwts.builder()
-                .header()
-                .add("alg", "HS256")
-                .add("typ", "JWT")
-                .and()
+        dummyJwt = Jwts.builder().header().add("alg", "HS256").add("typ", "JWT").and()
                 .claims(Map.of("roles", List.of("Participant.consumer")))
-                .signWith(key, SignatureAlgorithm.HS256)
-                .compact();
+                .signWith(key, SignatureAlgorithm.HS256).compact();
 
-        dummyJwtWithMultipleRoles = Jwts.builder()
-                .header()
-                .add("alg", "HS256")
-                .add("typ", "JWT")
-                .and()
+        dummyJwtWithMultipleRoles = Jwts.builder().header().add("alg", "HS256").add("typ", "JWT").and()
                 .claims(Map.of("roles", List.of("Read.consumer", "Participant.consumer")))
-                .signWith(key, SignatureAlgorithm.HS256)
-                .compact();
-
-        dummyJwtNonExistentParticipant = Jwts.builder()
-                .header()
-                .add("alg", "HS256")
-                .add("typ", "JWT")
-                .and()
-                .claims(Map.of("roles", List.of("Participant.doesnotexist")))
-                .signWith(key, SignatureAlgorithm.HS256)
-                .compact();
-
+                .signWith(key, SignatureAlgorithm.HS256).compact();
     }
-
 
     @AfterAll
     public static void afterAll() {
-        consumer.receive(true)
-                .takeUntil(event -> {
-                    String contractId;
-                    String timestamp;
-                    String updatedTelemetryEvent;
+        if (kafkaConsumer != null) {
+            long startTime = System.currentTimeMillis();
+            while (!USED_CONTRACT_ID.isEmpty() && (System.currentTimeMillis() - startTime < 60000)) {
+                var records = kafkaConsumer.poll(Duration.ofMillis(1000));
+                records.forEach(record -> {
                     try {
-                        contractId = OBJECT_MAPPER.readTree(event.getData().getBodyAsString())
-                                .path("properties").path("contractId").asText();
-
-                        timestamp = OBJECT_MAPPER.readTree(event.getData().getBodyAsString())
-                                .path("createdAt").asText();
-
-                        // Parse the telemetryEvent JSON
-                        JsonNode telemetryEventNode = OBJECT_MAPPER.readTree(event.getData().getBodyAsString())
-                                .path("properties");
-
-                        // Add the timestamp to the telemetryEvent JSON
-                        if (telemetryEventNode.isObject()) {
-                            ((ObjectNode) telemetryEventNode).put("timestamp", timestamp);
+                        JsonNode root = OBJECT_MAPPER.readTree(record.value());
+                        String contractId = root.path("properties").path("contractId").asText();
+                        String timestamp = root.path("createdAt").asText();
+                        
+                        ObjectNode telemetryEventNode = (ObjectNode) root.path("properties");
+                        if (telemetryEventNode != null) {
+                            telemetryEventNode.put("timestamp", timestamp);
+                            String updatedTelemetryEvent = OBJECT_MAPPER.writeValueAsString(telemetryEventNode);
+                            
+                            given()
+                                    .baseUri("%s".formatted(AUTHORITY.telemetryUrl()))
+                                    .contentType(JSON)
+                                    .body(updatedTelemetryEvent)
+                                    .post()
+                                    .then()
+                                    .log().ifError()
+                                    .statusCode(201);
+                                    
+                            if (USED_CONTRACT_ID.contains(contractId)) {
+                                USED_CONTRACT_ID.remove(contractId);
+                                if (!verifyData(contractId)) {
+                                    System.out.println("Data verification failed for contract ID: " + contractId);
+                                }
+                            }
                         }
-
-                        // Convert the updated telemetryEvent JSON back to a string
-                        updatedTelemetryEvent = OBJECT_MAPPER.writeValueAsString(telemetryEventNode);
-
                     } catch (JsonProcessingException e) {
-                        throw new RuntimeException(e);
+                        e.printStackTrace();
                     }
-                    USED_CONTRACT_ID.remove(contractId);
-
-
-                    given()
-                            .baseUri("%s".formatted(AUTHORITY.telemetryUrl()))
-                            .contentType(JSON)
-                            .body(updatedTelemetryEvent)
-                            .post()
-                            .then()
-                            .log().ifError()
-                            .statusCode(201);
-
-                    if (!verifyData(contractId)) {
-                        System.out.println("Data verification failed for contract ID: " + contractId);
-                    }
-
-                    return USED_CONTRACT_ID.isEmpty(); // we will take msg until the list is empty
-                })
-                .timeout(Duration.ofMinutes(1))
-                .doOnError(error -> {
-                    if (!USED_CONTRACT_ID.isEmpty()) {
-                        throw new RuntimeException("Timeout: usedContractId is not empty after 1 minute. Remaining elements: " + USED_CONTRACT_ID);
-                    }
-                })
-                .blockLast(); // This will block until the last message is received
-        consumer.close();
+                });
+            }
+            if (!USED_CONTRACT_ID.isEmpty()) {
+                System.err.println("Timeout: USED_CONTRACT_ID is not empty after 1 minute. Remaining: " + USED_CONTRACT_ID);
+            }
+            kafkaConsumer.close();
+        }
     }
 
     private static void seedData() {
@@ -301,7 +260,7 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                 .add("tls_ca_secret", "proxy-provider-tls-ca")
                 .add("sasl.jaas.config",
                         "org.apache.kafka.common.security.plain.PlainLoginModule required " +
-                                "username='provider1' password='secret1'")
+                                "username='provider' password='secret1'")
                 .build();
         PROVIDER.createEntry(ASSET_ID_KAFKA_STREAM + "-tst-2", "Test Asset Kafka", "a basic kafka stream", Map.of(
                 "type", "Kafka",
@@ -329,24 +288,6 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
         return atomicConstraint("%s:%s.$.%s.%s".formatted(DSE_POLICY_PREFIX, RESTRICTED_CATALOG_DISCOVERY_CONSTRAINT, credentialType, path), operator, rightOperand);
     }
 
-    private static void createKey(AbstractEntity entity, String key, String value) {
-        var body = Map.of(
-                "data", Map.of(
-                        "content", value
-                )
-        );
-
-        given()
-                .baseUri("%s/v1/secret/data/%s".formatted(entity.vaultUrl(), key))
-                .contentType(ContentType.JSON)
-                .header("X-Vault-Token", VAULT_TOKEN)
-                .body(body)
-                .post()
-                .then()
-                .log().ifError()
-                .statusCode(200);
-    }
-
     @Nested
     class CatalogTest {
 
@@ -366,9 +307,11 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                     ASSET_ID_REST_API_TRAVEL_DOMAIN_RESTRICTED
             );
 
-            assertThat(queryParticipantDatasets(AUTHORITY, PROVIDER.did(), PROVIDER.controlPlaneCatalogFilterUrl()))
-                    .allSatisfy(dataset -> assertThat(assets).contains(dataset.getString(ID)))
-                    .allSatisfy(dataset -> assertThat(dataset.get(EDC_NAMESPACE + "createdAt")).isNotNull());
+            var datasets = queryParticipantDatasets(AUTHORITY, PROVIDER.did(), PROVIDER.controlPlaneCatalogFilterUrl());
+            var datasetIds = datasets.stream().map(dataset -> dataset.getString(ID)).collect(Collectors.toSet());
+            
+            assertThat(datasetIds).containsAll(assets);
+            datasets.forEach(dataset -> assertThat(dataset.get(EDC_NAMESPACE + "createdAt")).isNotNull());
         }
 
         @Test
@@ -403,7 +346,7 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
         }
 
         public static String deriveStandardizedServiceName() {
-            return "kp-consumer-service";
+            return "proxy-provider";
         }
 
         @Test
@@ -413,13 +356,9 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
             CONSUMER.finishDataTransfer(transferProcessId);
         }
 
-        private void publishMessagesToKafka() {
-            try {
-                kafkacatPod = discoverPodName("", "kafkacat-");
-                KafkaIntermediary.provider_publish(kafkacatPod);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        private void publishMessagesToKafka() throws IOException, InterruptedException {
+            kafkacatPod = discoverPodName("", "kafkacat-provider");
+            KafkaIntermediary.provider_publish(kafkacatPod);
         }
 
         @Test
@@ -430,64 +369,33 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
 
 
             String serviceName = deriveStandardizedServiceName();
-            int servicePort = 30001;  // Fixed port for the standardized service
+            int servicePort = 30001;  // Proxy port with SASL_SSL
             String topic = "tst-topic";
             String expectedMessage = "Hello from provider!";
-
             getContractIdFromTransferProcess(CONSUMER, transferProcessId);
-            // Wait longer to ensure proxy is deployed and ready (discovery + deployment time)
             Thread.sleep(15000);
-
-            // Publish message on provider side
-            publishMessagesToKafka();
-
-            boolean messageReceived = KafkaIntermediary.waitForKafkaMessage(
-                    serviceName, servicePort, topic, expectedMessage, Duration.ofSeconds(20), kafkacatPod
-            );
+            kafkacatPod = discoverPodName("", "kafkacat-");
+            KafkaIntermediary.provider_publish(kafkacatPod);
+            boolean messageReceived = KafkaIntermediary.waitForKafkaMessage(serviceName, servicePort, topic, expectedMessage, Duration.ofSeconds(20), kafkacatPod);
             CONSUMER.finishDataTransfer(transferProcessId);
-            assertTrue(messageReceived,
-                    () -> "Expected message not found in Kafka topic within timeout: " + expectedMessage);
+            assertTrue(messageReceived, () -> "Expected message not found in Kafka topic within timeout: " + expectedMessage);
         }
 
-        private static String discoverPodName(String transferId, String filter)
-                throws IOException, InterruptedException {
+        private static String discoverPodName(String transferId, String filter) throws IOException, InterruptedException {
             long start = System.currentTimeMillis();
-            String podName = null;
-            while (System.currentTimeMillis() - start < 30 * 1000L) {
-                Process process = new ProcessBuilder(
-                        "kubectl",
-                        "--context", ParticipantConstants.KUBECTL_CONTEXT,
-                        "get", "pods",
-                        "-n", "default",
-                        "-o", "jsonpath={.items[*].metadata.name}"
-                ).start();
+            while (System.currentTimeMillis() - start < 30000) {
+                Process process = new ProcessBuilder("kubectl", "--context", ParticipantConstants.KUBECTL_CONTEXT, "get", "pods", "-n", "default", "-o", "jsonpath={.items[*].metadata.name}").start();
                 process.waitFor();
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                     String output = reader.lines().collect(Collectors.joining(" ")).trim();
                     if (!output.isEmpty()) {
-                        podName = Arrays.stream(output.split("\\s+"))
-                                .filter(name -> name.contains(filter + transferId))
-                                .findFirst()
-                                .orElse(null);
+                        String nameFound = Arrays.stream(output.split("\s+")).filter(name -> name.contains(filter + transferId)).findFirst().orElse(null);
+                        if (nameFound != null) return nameFound;
                     }
-                }
-                if (podName != null) {
-                    return podName;
                 }
                 Thread.sleep(1000);
             }
-            throw new RuntimeException("Timed out waiting for consumer pod for transferId " + transferId);
-        }
-
-        private static int getPodPort(String podName) throws IOException, InterruptedException {
-            Process process = new ProcessBuilder(
-                    "kubectl", "get", "pod", podName,
-                    "-o", "jsonpath={.spec.containers[0].ports[0].containerPort}"
-            ).start();
-            process.waitFor();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                return Integer.parseInt(reader.readLine().trim());
-            }
+            throw new RuntimeException("Timed out waiting for pod filter: " + filter);
         }
 
         @Test
@@ -506,12 +414,11 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
         void transfer_whenContractExpiration_shouldTerminateTransferProcessAtExpiration() {
             var message = UUID.randomUUID().toString();
             var expectedMsg = Map.of("message", message);
-            Map<String, String> queryParams = Map.of("message", message);
             var transferProcessId = negotiationContractAndStartTransfer(CONSUMER, PROVIDER, ASSET_ID_REST_20_SEC_API);
             var contractId = getContractIdFromTransferProcess(CONSUMER, transferProcessId);
             USED_CONTRACT_ID.add(contractId);
             await().atMost(TEST_TIMEOUT).untilAsserted(() -> {
-                var data = CONSUMER.queryData(contractId, queryParams, 200, Object.class);
+                var data = CONSUMER.queryData(contractId, Map.of("message", message), 200, Object.class);
                 assertThat(data).isEqualTo(expectedMsg);
             });
 
@@ -528,13 +435,11 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
         void transfer_forRestrictedDiscoveryAssets() {
             var message = UUID.randomUUID().toString();
             var expectedMsg = Map.of("message", message);
-            Map<String, String> queryParams = Map.of("message", message);
-            var negoId = CONSUMER.participantClient().initContractNegotiation(PROVIDER.participantClient(), ASSET_ID_REST_API_ROUTE_DOMAIN_RESTRICTED);
             var transferProcessId = negotiationContractAndStartTransfer(CONSUMER, PROVIDER, ASSET_ID_REST_API_ROUTE_DOMAIN_RESTRICTED);
             var contractId = getContractIdFromTransferProcess(CONSUMER, transferProcessId);
             USED_CONTRACT_ID.add(contractId);
             await().atMost(TEST_TIMEOUT).untilAsserted(() -> {
-                var data = CONSUMER.queryData(contractId, queryParams, 200, Object.class);
+                var data = CONSUMER.queryData(contractId, Map.of("message", message), 200, Object.class);
                 assertThat(data).isEqualTo(expectedMsg);
             });
         }
@@ -567,53 +472,45 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                 var state = CONSUMER.participantClient().getContractNegotiationState(negoId);
                 assertThat(state).isEqualTo(ContractNegotiationStates.TERMINATED.name());
             });
-
-            // Verify negotiation exists before deletion
-            CONSUMER.participantClient().baseManagementRequest()
-                    .when()
-                    .get("/v3/contractnegotiations/" + negoId)
-                    .then()
-                    .log().ifError()
-                    .statusCode(200);
-
-            // Delete the contract negotiation
-            CONSUMER.participantClient().baseManagementRequest()
-                    .when()
-                    .delete("/v3/contractnegotiations/" + negoId)
-                    .then()
-                    .log().ifError()
-                    .statusCode(204);
-
-            // Verify negotiation no longer exists
-            CONSUMER.participantClient().baseManagementRequest()
-                    .when()
-                    .get("/v3/contractnegotiations/" + negoId)
-                    .then()
-                    .log().ifError()
-                    .statusCode(404);
+            CONSUMER.participantClient().baseManagementRequest().get("/v3/contractnegotiations/" + negoId).then().statusCode(200);
+            CONSUMER.participantClient().baseManagementRequest().delete("/v3/contractnegotiations/" + negoId).then().statusCode(204);
+            CONSUMER.participantClient().baseManagementRequest().get("/v3/contractnegotiations/" + negoId).then().statusCode(404);
         }
 
         public static String getContractIdFromTransferProcess(AbstractParticipant consumer, String transferProcessId) {
-            return consumer.participantClient().baseManagementRequest()
-                    .when()
-                    .get("/v3/transferprocesses/" + transferProcessId)
-                    .then()
-                    .statusCode(200)
-                    .extract().body().jsonPath().getString("contractId");
+            return consumer.participantClient().baseManagementRequest().get("/v3/transferprocesses/" + transferProcessId).then().statusCode(200).extract().body().jsonPath().getString("contractId");
         }
 
         public static class TransferTestProvider implements ArgumentsProvider {
-
             @Override
             public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) {
                 var msg = UUID.randomUUID().toString();
-                return Stream.of(
-                        Arguments.of(Map.of("message", msg), ASSET_ID_REST_API, msg),
-                        Arguments.of(Map.of("message", msg), ASSET_ID_REST_API_DOMAIN, msg),
-                        Arguments.of(Map.of("message", msg), ASSET_ID_REST_API_OAUTH2, msg),
-                        Arguments.of(Map.of(), ASSET_ID_REST_API_EMBEDDED_QUERY_PARAMS, EMBEDDED_QUERY_PARAM)
-                );
+                return Stream.of(Arguments.of(Map.of("message", msg), ASSET_ID_REST_API, msg), Arguments.of(Map.of("message", msg), ASSET_ID_REST_API_DOMAIN, msg), Arguments.of(Map.of("message", msg), ASSET_ID_REST_API_OAUTH2, msg), Arguments.of(Map.of(), ASSET_ID_REST_API_EMBEDDED_QUERY_PARAMS, EMBEDDED_QUERY_PARAM));
             }
+        }
+
+        @Test
+        void transfer_retireAgreement_shouldBlockFurtherAccess() {
+            var message = UUID.randomUUID().toString();
+            var expectedMsg = Map.of("message", message);
+            var transferProcessId = negotiationContractAndStartTransfer(CONSUMER, PROVIDER, ASSET_ID_REST_API);
+            var contractId = getContractIdFromTransferProcess(CONSUMER, transferProcessId);
+            USED_CONTRACT_ID.add(contractId);
+            await().atMost(TEST_TIMEOUT).untilAsserted(() -> {
+                var data = CONSUMER.queryData(contractId, Map.of("message", message), 200, Map.class);
+                assertThat(data).isEqualTo(expectedMsg);
+            });
+            retireAgreement(PROVIDER, contractId, "Test retirement reason");
+            await().atMost(TEST_TIMEOUT).untilAsserted(() -> {
+                var error = CONSUMER.queryData(contractId, Map.of("message", message), 403, TransferErrorResponse.class);
+                assertThat(error.getErrors()).anyMatch(m -> m.contains("No EDR satisfying criterion"));
+            });
+            reactivateAgreement(PROVIDER, contractId);
+            transferProcess(CONSUMER, PROVIDER, contractId);
+            await().atMost(TEST_TIMEOUT).untilAsserted(() -> {
+                var data = CONSUMER.queryData(contractId, Map.of("message", message), 200, Map.class);
+                assertThat(data).isEqualTo(expectedMsg);
+            });
         }
 
         protected void transferProcess(AbstractParticipant consumer, AbstractParticipant provider, String contractId) {
@@ -669,61 +566,12 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                     .log().ifError()
                     .statusCode(204);
         }
-
-        @Test
-        void transfer_retireAgreement_shouldBlockFurtherAccess() {
-            var message = UUID.randomUUID().toString();
-            Map<String, String> queryParams = Map.of("message", message);
-            var expectedMsg = Map.of("message", message);
-
-            // Negotiate and transfer
-            var transferProcessId = negotiationContractAndStartTransfer(CONSUMER, PROVIDER, ASSET_ID_REST_API);
-            var contractId = getContractIdFromTransferProcess(CONSUMER, transferProcessId);
-            USED_CONTRACT_ID.add(contractId);
-            // Confirm data access works
-            await().atMost(TEST_TIMEOUT).untilAsserted(() -> {
-                var data = CONSUMER.queryData(contractId, queryParams, 200, Map.class);
-                assertThat(data).isEqualTo(expectedMsg);
-            });
-
-            // Retire the agreement
-            retireAgreement(PROVIDER, contractId, "Test retirement reason");
-
-            // Confirm data access is blocked after retirement
-            await().atMost(TEST_TIMEOUT).untilAsserted(() -> {
-                var error = CONSUMER.queryData(contractId, queryParams, 403, TransferErrorResponse.class);
-                assertThat(error.getErrors()).anyMatch(msg -> msg.contains("No EDR satisfying criterion"));
-            });
-            // Reactivate the agreement
-            reactivateAgreement(PROVIDER, contractId);
-            // Confirm data access is opened after reactivation
-            transferProcess(CONSUMER, PROVIDER, contractId);
-            await().atMost(TEST_TIMEOUT).untilAsserted(() -> {
-                var data = CONSUMER.queryData(contractId, queryParams, 200, Map.class);
-                assertThat(data).isEqualTo(expectedMsg);
-            });
-        }
     }
 
-
-    // Using order here should be considered technical debt and be tackled in the future.
-    // Here I am using order to make the report test be the first one to be executed.
-    // Unfortunately, our tests are not independent between each other in the sense that the data created is cleaned after their execution
-    // If this test runs after the remaining ones the validation that is used to generate the report fails so if I run it before the others I have a clean state in the DB.
-    // FDPT-84293
     @Nested
     @Order(1)
     class ReportTest {
-
-        public static String buildTelemetryJson(
-                String id,
-                String contractId,
-                String participantDid,
-                int responseStatusCode,
-                int msgSize,
-                Integer csvId,
-                Timestamp timestamp
-        ) {
+        public static String buildTelemetryJson(String id, String contractId, String participantDid, int responseStatusCode, int msgSize, Integer csvId, Timestamp timestamp) {
             try {
                 ObjectNode root = OBJECT_MAPPER.createObjectNode();
                 root.put("id", id);
@@ -731,225 +579,59 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                 root.put("participantId", participantDid);
                 root.put("responseStatusCode", responseStatusCode);
                 root.put("msgSize", msgSize);
-
-                if (csvId != null) {
-                    root.put("csvId", csvId);
-                } else {
-                    root.putNull("csvId");
-                }
-
+                if (csvId != null) root.put("csvId", csvId); else root.putNull("csvId");
                 root.put("timestamp", timestamp.toInstant().toString());
-
                 return OBJECT_MAPPER.writeValueAsString(root);
-
-            } catch (Exception e) {
-                throw new RuntimeException("Error building telemetry JSON", e);
-            }
+            } catch (Exception e) { throw new RuntimeException(e); }
         }
 
-        public static String buildGenerationJson(
-                String participantName,
-                Integer month,
-                Integer year
-        ) {
+        public static String buildGenerationJson(String participantName, Integer month, Integer year) {
             try {
                 ObjectNode root = OBJECT_MAPPER.createObjectNode();
                 root.put("participantName", participantName);
                 root.put("month", month);
                 root.put("year", year);
-
                 return OBJECT_MAPPER.writeValueAsString(root);
-
-            } catch (Exception e) {
-                throw new RuntimeException("Error building generation JSON", e);
-            }
+            } catch (Exception e) { throw new RuntimeException(e); }
         }
 
         @Test
         void testReportGenerationSucceeds() {
             String ctId = UUID.randomUUID().toString();
-            int month = 9;
-            int year = 2025;
+            int month = 9; int year = 2025;
             Timestamp timestamp = Timestamp.valueOf(LocalDateTime.of(year, month, 20, 20, 18));
-            String eventConsumer = buildTelemetryJson("1", ctId, CONSUMER.did(), 200, 20, null, timestamp);
-            String eventProvider = buildTelemetryJson("2", ctId, PROVIDER.did(), 200, 20, null, timestamp);
-
-            given()
-                    .baseUri("%s".formatted(AUTHORITY.telemetryUrl()))
-                    .contentType(JSON)
-                    .body(eventConsumer)
-                    .post()
-                    .then()
-                    .log().ifError()
-                    .statusCode(201);
-
-            given()
-                    .baseUri("%s".formatted(AUTHORITY.telemetryUrl()))
-                    .contentType(JSON)
-                    .body(eventProvider)
-                    .post()
-                    .then()
-                    .log().ifError()
-                    .statusCode(201);
-
-            String generationJson = buildGenerationJson(CONSUMER.name(), month, year);
-
-            given()
-                    .baseUri("%s".formatted(AUTHORITY.csvManagerUrl()))
-                    .body(generationJson)
-                    .contentType(JSON)
-                    .post()
-                    .then()
-                    .log().ifError()
-                    .statusCode(201);
-
-            Map<String, Object> getReportParams = new HashMap<>();
-            getReportParams.put("month", month);
-            getReportParams.put("year", year);
-
-            Response responseBody = given()
-                    .baseUri("%s".formatted(AUTHORITY.csvManagerUrl()))
-                    .params(getReportParams)
-                    .contentType(JSON)
-                    .header("Authorization", "Bearer " + dummyJwt)
-                    .get()
-                    .then()
-                    .log().ifError()
-                    .statusCode(200).contentType(containsString("text/csv"))
-                    .extract().response();
-
-            String expectedCsvReportBuilder = REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO + "\n" +
-                    ctId + "," + PROVIDER.name() + "," + 200 + "," + 0.02 + "," + 1;
-            assertEquals(expectedCsvReportBuilder, responseBody.getBody().asString().trim());
-
-            // Validates that if we have multiple roles in the JWT it still returns the correct report
-            Response responseBodyForMultipleRoles = given()
-                    .baseUri("%s".formatted(AUTHORITY.csvManagerUrl()))
-                    .params(getReportParams)
-                    .contentType(JSON)
-                    .header("Authorization", "Bearer " + dummyJwtWithMultipleRoles)
-                    .get()
-                    .then()
-                    .log().ifError()
-                    .statusCode(200).contentType(containsString("text/csv"))
-                    .extract().response();
-
-            assertEquals(expectedCsvReportBuilder, responseBodyForMultipleRoles.getBody().asString().trim());
+            given().baseUri(AUTHORITY.telemetryUrl()).contentType(JSON).body(buildTelemetryJson("1", ctId, CONSUMER.did(), 200, 20, null, timestamp)).post().then().statusCode(201);
+            given().baseUri(AUTHORITY.telemetryUrl()).contentType(JSON).body(buildTelemetryJson("2", ctId, PROVIDER.did(), 200, 20, null, timestamp)).post().then().statusCode(201);
+            given().baseUri(AUTHORITY.csvManagerUrl()).body(buildGenerationJson(CONSUMER.name(), month, year)).contentType(JSON).post().then().statusCode(201);
+            
+            Response response = given().baseUri(AUTHORITY.csvManagerUrl()).params(Map.of("month", month, "year", year)).contentType(JSON).header("Authorization", "Bearer " + dummyJwt).get().then().statusCode(200).contentType(containsString("text/csv")).extract().response();
+            String expected = REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO + "\n" + ctId + "," + PROVIDER.name() + "," + 200 + "," + 0.02 + "," + 1;
+            assertEquals(expected, response.getBody().asString().trim());
         }
 
         @Test
         void testReportGenerationWithOnlyOnePartySucceeds() {
             String ctId = UUID.randomUUID().toString();
-            int month = 12;
-            int year = 2025;
-            Timestamp timestamp = Timestamp.valueOf(LocalDateTime.of(year, month, 20, 20, 18));
-            // Only creates an event for the consumer and not the provider to trigger a failure in the report generation validation
-            String eventConsumer = buildTelemetryJson("3", ctId, CONSUMER.did(), 400, 20, null, timestamp);
-
-            given()
-                    .baseUri("%s".formatted(AUTHORITY.telemetryUrl()))
-                    .contentType(JSON)
-                    .body(eventConsumer)
-                    .post()
-                    .then()
-                    .log().ifError()
-                    .statusCode(201);
-
-            String generationJson = buildGenerationJson(CONSUMER.name(), month, year);
-
-            given()
-                    .baseUri("%s".formatted(AUTHORITY.csvManagerUrl()))
-                    .body(generationJson)
-                    .contentType(JSON)
-                    .post()
-                    .then()
-                    .log().ifError()
-                    .statusCode(201);
-
-            Map<String, Object> getReportParams = new HashMap<>();
-            getReportParams.put("month", month);
-            getReportParams.put("year", year);
-
-            Response responseBody = given()
-                    .baseUri("%s".formatted(AUTHORITY.csvManagerUrl()))
-                    .params(getReportParams)
-                    .contentType(JSON)
-                    .header("Authorization", "Bearer " + dummyJwt)
-                    .get()
-                    .then()
-                    .log().ifError()
-                    .statusCode(200).contentType(containsString("text/csv"))
-                    .extract().response();
-
-            // If there are no events received from the counterparty side, it will not be possible to pinpoint the name
-            // of the counterparty so it will be marked as N/A
-            String expectedCsvReportBuilder = REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO + "\n" +
-                    ctId + ",N/A," + 400 + "," + 0.02 + "," + 1;
-            assertEquals(expectedCsvReportBuilder, responseBody.getBody().asString().trim());
+            int month = 12; int year = 2025;
+            given().baseUri(AUTHORITY.telemetryUrl()).contentType(JSON).body(buildTelemetryJson("3", ctId, CONSUMER.did(), 400, 20, null, Timestamp.valueOf(LocalDateTime.of(year, month, 20, 20, 18)))).post().then().statusCode(201);
+            given().baseUri(AUTHORITY.csvManagerUrl()).body(buildGenerationJson(CONSUMER.name(), month, year)).contentType(JSON).post().then().statusCode(201);
+            Response response = given().baseUri(AUTHORITY.csvManagerUrl()).params(Map.of("month", month, "year", year)).contentType(JSON).header("Authorization", "Bearer " + dummyJwt).get().then().statusCode(200).contentType(containsString("text/csv")).extract().response();
+            String expected = REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO + "\n" + ctId + ",N/A," + 400 + "," + 0.02 + "," + 1;
+            assertEquals(expected, response.getBody().asString().trim());
         }
 
         @Test
         void testRetrieveReportWithNonExistentParticipantFails() {
             String ctId = UUID.randomUUID().toString();
-            int month = 1;
-            int year = 2025;
-            Timestamp timestamp = Timestamp.valueOf(LocalDateTime.of(year, month, 20, 20, 18));
-            // Only creates an event for the consumer and not the provider to trigger a failure in the report generation validation
-            String eventConsumer = buildTelemetryJson("4", ctId, CONSUMER.did(), 200, 20, null, timestamp);
-
-            given()
-                    .baseUri("%s".formatted(AUTHORITY.telemetryUrl()))
-                    .contentType(JSON)
-                    .body(eventConsumer)
-                    .post()
-                    .then()
-                    .log().ifError()
-                    .statusCode(201);
-
-            String generationJson = buildGenerationJson(CONSUMER.name(), month, year);
-
-            given()
-                    .baseUri("%s".formatted(AUTHORITY.csvManagerUrl()))
-                    .body(generationJson)
-                    .contentType(JSON)
-                    .post()
-                    .then()
-                    .log().ifError()
-                    .statusCode(201);
-
-            Map<String, Object> getReportParams = new HashMap<>();
-            getReportParams.put("month", month);
-            getReportParams.put("year", year);
-
-            given()
-                    .baseUri("%s".formatted(AUTHORITY.csvManagerUrl()))
-                    .params(getReportParams)
-                    .contentType(JSON)
-                    .header("Authorization", "Bearer " + dummyJwtNonExistentParticipant)
-                    .get()
-                    .then()
-                    .log().ifError()
-                    .statusCode(403);
+            int month = 1; int year = 2025;
+            given().baseUri(AUTHORITY.telemetryUrl()).contentType(JSON).body(buildTelemetryJson("4", ctId, CONSUMER.did(), 200, 20, null, Timestamp.valueOf(LocalDateTime.of(year, month, 20, 20, 18)))).post().then().statusCode(201);
+            given().baseUri(AUTHORITY.csvManagerUrl()).body(buildGenerationJson(CONSUMER.name(), month, year)).contentType(JSON).post().then().statusCode(201);
+            given().baseUri(AUTHORITY.csvManagerUrl()).params(Map.of("month", month, "year", year)).contentType(JSON).header("Authorization", "Bearer " + dummyJwtNonExistentParticipant).get().then().statusCode(403);
         }
 
         @Test
         void testRetrieveNonExistentReportFromExistentParticipantFails() {
-            int month = 2;
-            int year = 2024;
-
-            Map<String, Object> getReportParams = new HashMap<>();
-            getReportParams.put("month", month);
-            getReportParams.put("year", year);
-
-            given()
-                    .baseUri("%s".formatted(AUTHORITY.csvManagerUrl()))
-                    .params(getReportParams)
-                    .contentType(JSON)
-                    .header("Authorization", "Bearer " + dummyJwt)
-                    .get()
-                    .then()
-                    .log().ifError()
-                    .statusCode(404);
+            given().baseUri(AUTHORITY.csvManagerUrl()).params(Map.of("month", 2, "year", 2024)).contentType(JSON).header("Authorization", "Bearer " + dummyJwt).get().then().statusCode(404);
         }
     }
 }

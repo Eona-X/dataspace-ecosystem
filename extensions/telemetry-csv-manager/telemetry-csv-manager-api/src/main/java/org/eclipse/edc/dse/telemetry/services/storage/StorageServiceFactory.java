@@ -4,29 +4,18 @@ import org.eclipse.edc.spi.monitor.Monitor;
 
 public class StorageServiceFactory {
 
-    public static final String AZURITE = "azurite";
-    public static final String AZURE = "azure";
+    public static final String TYPE_S3 = "s3";
+    public static final String TYPE_MINIO = "minio";
 
-    public static AzureStorageService create(Monitor monitor, String storageType, String azuriteConnectionString,
-                                             String azuriteStorageContainer, String azureClientId, String azureClientSecret,
-                                             String azureTenantId, String azureStorageContainer, String azureStorageEndpoint) {
+    public static ReportStorageService create(Monitor monitor, String storageType, String s3Endpoint,
+                                              String s3AccessKey, String s3SecretKey, String s3Bucket, String s3Region) {
 
         monitor.info("Object Storage Type Selected: " + storageType);
-        if (AZURITE.equalsIgnoreCase(storageType)) {
-            return new AzuriteStorageService(monitor,
-                    azuriteConnectionString,
-                    azuriteStorageContainer
-            );
-        } else if (AZURE.equalsIgnoreCase(storageType)) {
-            return new RealAzureStorageService(monitor,
-                    azureClientId,
-                    azureClientSecret,
-                    azureTenantId,
-                    azureStorageContainer,
-                    azureStorageEndpoint
-            );
+
+        if (TYPE_S3.equalsIgnoreCase(storageType) || TYPE_MINIO.equalsIgnoreCase(storageType)) {
+            return new S3CompatibleStorageService(monitor, s3Endpoint, s3AccessKey, s3SecretKey, s3Bucket, s3Region);
         } else {
-            throw new IllegalStateException("Unknown STORAGE_TYPE: " + storageType);
+            throw new IllegalStateException("Unknown STORAGE_TYPE: " + storageType + ". Only 's3' or 'minio' are supported.");
         }
     }
 }

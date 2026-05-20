@@ -34,10 +34,13 @@ public class TelemetryEvent {
     private ParticipantId participant;
 
     @Column(name = "response_status_code", nullable = false)
-    private int responseStatusCode;
+    private int responseStatus;
 
     @Column(name = "msg_size", nullable = false)
     private int msgSize;
+
+    @Column(name = "participant_did", insertable = false, updatable = false)
+    private String participantId;
 
     @ManyToOne
     @JoinColumn(name = "csv_id", referencedColumnName = "id",
@@ -74,12 +77,12 @@ public class TelemetryEvent {
         this.participant = participant;
     }
 
-    public int getResponseStatusCode() {
-        return responseStatusCode;
+    public int getResponseStatus() {
+        return responseStatus;
     }
 
-    public void setResponseStatusCode(int responseStatusCode) {
-        this.responseStatusCode = responseStatusCode;
+    public void setResponseStatus(int responseStatus) {
+        this.responseStatus = responseStatus;
     }
 
     public int getMsgSize() {
@@ -88,6 +91,10 @@ public class TelemetryEvent {
 
     public void setMsgSize(int msgSize) {
         this.msgSize = msgSize;
+    }
+
+    public String getParticipantId() {
+        return participantId;
     }
 
     public Report getCsvReport() {
@@ -110,13 +117,13 @@ public class TelemetryEvent {
     public boolean equals(Object o) {
         if (o == null || getClass() != o.getClass()) return false;
         TelemetryEvent that = (TelemetryEvent) o;
-        return responseStatusCode == that.responseStatusCode && msgSize == that.msgSize && Objects.equals(id, that.id) &&
+        return responseStatus == that.responseStatus && msgSize == that.msgSize && Objects.equals(id, that.id) &&
                 Objects.equals(contractId, that.contractId) && Objects.equals(participant, that.participant) &&
                 Objects.equals(csvReport, that.csvReport) && Objects.equals(timestamp, that.timestamp);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, contractId, participant, responseStatusCode, msgSize, csvReport, timestamp);
+        return Objects.hash(id, contractId, participant, responseStatus, msgSize, csvReport, timestamp);
     }
 }

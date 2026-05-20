@@ -31,8 +31,30 @@ spec:
       serviceAccountName: {{include "dse.serviceAccountName" .}}
       securityContext:
         {{- toYaml .Values.telemetrycsvmanager.podSecurityContext | nindent 8}}
+      {{- with .Values.telemetrycsvmanager.initContainers }}
       initContainers:
-        {{- toYaml .Values.telemetrycsvmanager.initContainers | nindent 8}}
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+        {{- if .Values.telemetrycsvmanager.s3.endpoint }}
+        - name: wait-for-s3
+          image: "alpine:3.20"
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Waiting for S3 at {{ .Values.telemetrycsvmanager.s3.endpoint }}..."
+              # Extract host and port from endpoint URL
+              URL="{{ .Values.telemetrycsvmanager.s3.endpoint }}"
+              HOST=$(echo $URL | awk -F[/:] '{print $4}')
+              PORT=$(echo $URL | awk -F[/:] '{print $5}')
+              if [ -z "$PORT" ]; then
+                if echo $URL | grep -q "https"; then PORT=443; else PORT=80; fi
+              fi
+              until nc -z $HOST $PORT; do
+                echo "S3 is unavailable - sleeping"
+                sleep 2
+              done
+              echo "S3 is up!"
+        {{- end }}
       containers:
         - name: {{.Chart.Name}}
           securityContext:
@@ -129,48 +151,6 @@ spec:
         {{- end}}
         {{- end}}
 
-            ###############
-            # AZURE VAULT #
-            ###############
-        {{- if .Values.telemetrycsvmanager.vault.azure.name}}
-            - name: "EDC_VAULT_NAME"
-              value: {{.Values.telemetrycsvmanager.vault.azure.name | required ".Values.telemetrycsvmanager.vault.azure.name is required" | quote}}
-        {{- if .Values.telemetrycsvmanager.vault.azure.url}}
-            - name: "EDC_VAULT_URL_OVERRIDE"
-              value: {{.Values.telemetrycsvmanager.vault.azure.url | quote}}
-            - name: "EDC_VAULT_URL_OVERRIDE_UNSAFE"
-              value: {{.Values.telemetrycsvmanager.vault.azure.unsafe | quote}}
-        {{- end}}
-
-        {{- with .Values.telemetrycsvmanager.vault.azure.credentials.secret}}
-            - name: "AZURE_CLIENT_ID"
-              valueFrom:
-                secretKeyRef:
-                  name: {{.name | required ".Values.telemetrycsvmanager.vault.azure.credentials.secret.name is required" | quote}}
-                  key: {{.clientIdKey | required ".Values.telemetrycsvmanager.vault.azure.credentials.secret.clientIdKey is required" | quote}}
-            - name: "AZURE_TENANT_ID"
-              valueFrom:
-                secretKeyRef:
-                  name: {{.name | required ".Values.telemetrycsvmanager.vault.azure.credentials.secret.name is required" | quote}}
-                  key: {{.tenantIdKey | required ".Values.telemetrycsvmanager.vault.azure.credentials.secret.tenantIdKey is required" | quote}}
-            # only set the env var if config value not null
-        {{- if .clientSecretKey}}
-            - name: "AZURE_CLIENT_SECRET"
-              valueFrom:
-                secretKeyRef:
-                  name: {{.name | required ".Values.telemetrycsvmanager.vault.azure.credentials.secret.name is required" | quote}}
-                  key: {{.clientSecretKey | quote}}
-        {{- end}}
-            # only set the env var if config value not null
-        {{- if .clientCertificateKey}}
-            - name: "AZURE_CLIENT_CERTIFICATE_PATH"
-              valueFrom:
-                secretKeyRef:
-                  name: {{.name | required ".Values.telemetrycsvmanager.vault.azure.credentials.secret.name is required" | quote}}
-                  key: {{.clientCertificateKey | quote}}
-        {{- end}}
-        {{- end}}
-        {{- end}}
 
             #####################
             ## HASHICORP VAULT ##
@@ -217,28 +197,27 @@ spec:
             ###################
             # REPORT STORAGE #
             ##################
-            - name: "STORAGE_TYPE"
+            - name: "EDC_STORAGE_TYPE"
               value: {{.Values.telemetrycsvmanager.objectStorageType | required ".Values.telemetrycsvmanager.objectStorageType is required" | quote}}
-              
-        {{- if eq .Values.telemetrycsvmanager.objectStorageType "azure"}}
-            - name: "AZURE_CLIENT_ID"
-              value: {{.Values.telemetrycsvmanager.azure.clientId | required ".Values.telemetrycsvmanager.azure.clientId is required" | quote}}
-            - name: "AZURE_CLIENT_SECRET"
-              value: {{.Values.telemetrycsvmanager.azure.clientSecret | required ".Values.telemetrycsvmanager.azure.clientSecret is required" | quote}}
-            - name: "AZURE_TENANT_ID"
-              value: {{.Values.telemetrycsvmanager.azure.tenantId | required ".Values.telemetrycsvmanager.azure.tenantId is required" | quote}}
-            - name: "AZURE_STORAGE_ENDPOINT"
-              value: {{.Values.telemetrycsvmanager.azure.storageEndpoint | required ".Values.telemetrycsvmanager.azure.storageEndpoint is required" | quote}}
-            - name: "AZURE_STORAGE_CONTAINER"
-              value: {{.Values.telemetrycsvmanager.azure.containerName | required ".Values.telemetrycsvmanager.azure.containerName is required" | quote}}
-        {{- end}}
 
-        {{- if eq .Values.telemetrycsvmanager.objectStorageType "azurite"}}
-            - name: "AZURITE_CONNECTION_STRING"
-              value: {{.Values.telemetrycsvmanager.azurite.connectionString | required ".Values.telemetrycsvmanager.azurite.connectionString is required" | quote}}
-            - name: "AZURITE_STORAGE_CONTAINER"
-              value: {{.Values.telemetrycsvmanager.azurite.containerName | required ".Values.telemetrycsvmanager.azurite.containerName is required" | quote}}
-        {{- end}}
+        {{- with .Values.telemetrycsvmanager.s3 }}
+            - name: "EDC_S3_ENDPOINT"
+              value: {{ .endpoint | quote }}
+            - name: "EDC_S3_BUCKET_NAME"
+              value: {{ .bucketName | quote }}
+            - name: "EDC_S3_REGION"
+              value: {{ .region | quote }}
+            - name: "EDC_S3_ACCESS_KEY"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .credentials.secret.name | required ".Values.telemetrycsvmanager.s3.credentials.secret.name is required" | quote }}
+                  key: {{ .credentials.secret.accessKey | required ".Values.telemetrycsvmanager.s3.credentials.secret.accessKey is required" | quote }}
+            - name: "EDC_S3_SECRET_KEY"
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .credentials.secret.name | required ".Values.telemetrycsvmanager.s3.credentials.secret.name is required" | quote }}
+                  key: {{ .credentials.secret.secretKey | required ".Values.telemetrycsvmanager.s3.credentials.secret.secretKey is required" | quote }}
+        {{- end }}
 
             #######
             # API #
@@ -297,6 +276,9 @@ spec:
         - name: cert-volume
           secret:
             secretName: {{  required ".Values.telemetrycsvmanager.vault.hashicorp.cert.secretName is required" .Values.telemetrycsvmanager.vault.hashicorp.cert.secretName }}
+            items:
+              - key: ca.crt
+                path: tls.crt
 
       {{- with .Values.telemetrycsvmanager.nodeSelector}}
       nodeSelector:

@@ -11,13 +11,14 @@ variable "environment" {
   type        = string
 }
 
-variable "account_secret_azurite" {
-  description = "Account secret for event hub"
-  sensitive   = true
+
+variable "minio_access_key" {
+  description = "Access key for MinIO"
 }
 
-variable "account_name_azurite" {
-  description = "Account name for event hub"
+variable "minio_secret_key" {
+  description = "Secret key for MinIO"
+  sensitive   = true
 }
 
 variable "devbox-registry" {
@@ -58,4 +59,16 @@ variable "kafka_group_id" {
   description = "Kafka group ID for the telemetry storage"
   type        = string
   default     = "telemetry-storage-group"
+}
+
+variable "telemetry_credential_signer_alias" {
+  description = "Alias of the private key in Vault used for signing telemetry OIDC tokens"
+  type        = string
+  default     = "authority"
+}
+
+variable "telemetry_credential_public_key_alias" {
+  description = "Alias of the public key in Vault used for JWKS exposure"
+  type        = string
+  default     = "authority-pub"
 }

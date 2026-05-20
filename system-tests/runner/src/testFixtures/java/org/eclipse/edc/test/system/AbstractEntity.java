@@ -61,5 +61,4 @@ abstract class AbstractEntity {
     protected AnyOf<Integer> isStatus2xx() {
         return anyOf(is(200), is(201), is(204));
     }
-
 }

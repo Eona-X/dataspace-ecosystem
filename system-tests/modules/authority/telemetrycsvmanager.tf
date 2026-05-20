@@ -24,7 +24,6 @@ resource "helm_release" "telemetrycsvmanager" {
         }
       ] : []
       "telemetrycsvmanager" : {
-        "initContainers" : [],
         "image" : {
           "repository" : local.telemetry_csv_manager_image
           "pullPolicy" : var.environment == "local" ? "Never" : "IfNotPresent"
@@ -32,7 +31,7 @@ resource "helm_release" "telemetrycsvmanager" {
         },
         "did" : {
           "web" : {
-            "url" : local.did_url,
+            "url" : local.did_url
             "useHttps" : false
           }
         },
@@ -52,10 +51,18 @@ web.http.telemetrycsvmanager.path=/telemetrycsvmanager
 edc.vault.hashicorp.token.scheduled-renew-enabled=false
         EOT
 
-        "objectStorageType" : "azurite"
-        "azurite" : {
-          "connectionString" : "DefaultEndpointsProtocol=http;AccountName=${var.account_name_azurite};AccountKey=${var.account_secret_azurite};BlobEndpoint=http://azurite-report-storage:10000/${var.account_name_azurite};"
-          "containerName" : "reports"
+        "objectStorageType" : "s3"
+        "s3" : {
+          "endpoint" : "http://minio-report-storage:9000"
+          "bucketName" : "reports"
+          "region" : "us-east-1"
+          "credentials" : {
+            "secret" : {
+              "name" : "minio-credentials"
+              "accessKey" : "access-key"
+              "secretKey" : "secret-key"
+            }
+          }
         }
 
         "ingress" : {
@@ -85,6 +92,9 @@ edc.vault.hashicorp.token.scheduled-renew-enabled=false
         "vault" : {
           "hashicorp" : {
             "url" : module.vault.vault_url
+            "cert" : {
+              "secretName" : "proxy-provider-tls-ca"
+            }
             "token" : {
               "secret" : {
                 "name" : module.vault.vault_secret_name

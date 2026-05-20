@@ -114,24 +114,6 @@ telemetrycsvmanager:
         secret: /v1/secret
         folder: ""
         health: /v1/sys/health
-    # -- Azure Key Vault
-    azure:
-      name: ""
-      url: ""
-      unsafe: false
-      credentials:
-        secret:
-          # -- name of the Kubernetes secret containing the Azure Vault credentials
-          name: ""
-          # -- secret key containing the Service Principal ID
-          clientIdKey: ""
-          # -- secret key containing the Tenant ID
-          tenantIdKey: ""
-          # -- secret key containing the Service Principal client secret
-          clientSecretKey: ""
-          # -- secret key containing the Service Principal client certificate
-          clientCertificateKey: ""
-
   service:
     # -- [Service type](https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types) to expose the running application on a set of Pods as a network service.
     type: ClusterIP
@@ -259,19 +241,16 @@ telemetrycsvmanager:
   # [affinity](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) to configure which nodes the pods can be scheduled on
   affinity: { }
   url: { }
-  objectStorageType: "none" # "none", "azurite", "azure"
-  azure:
-    # -- Azure Blob configuration
-    clientId: ""
-    clientSecret: ""
-    tenantId: ""
-    containerName: ""
-    storageEndpoint: ""
-
-  azurite:
-    # -- Azurite configuration for testing purposes only
-    connectionString: ""
-    containerName: ""
+  objectStorageType: "s3"
+  s3:
+    endpoint: ""
+    bucketName: ""
+    region: "eu-west-par"
+    credentials:
+      secret:
+        name: ""
+        accessKey: "access-key"
+        secretKey: "secret-key"
 
 serviceAccount:
   # Specifies whether a service account should be created

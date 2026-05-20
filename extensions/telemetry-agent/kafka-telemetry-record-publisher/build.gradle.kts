@@ -8,6 +8,8 @@ dependencies {
     implementation(project(":spi:common-spi"))
     implementation(project(":spi:telemetry-agent-spi"))
     implementation(libs.nimbus.jwt)
+    implementation(project(":spi:telemetry-service-spi"))
+    implementation(libs.nimbus.jwt)
 
     testImplementation(project(":extensions:telemetry-test-utils"))
     testImplementation(libs.edc.core.junit)

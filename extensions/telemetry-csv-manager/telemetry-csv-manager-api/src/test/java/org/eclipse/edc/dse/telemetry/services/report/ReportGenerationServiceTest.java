@@ -10,7 +10,7 @@ import org.eclipse.edc.dse.telemetry.repository.ParticipantRepository;
 import org.eclipse.edc.dse.telemetry.repository.ReportRepository;
 import org.eclipse.edc.dse.telemetry.repository.TelemetryEventRepository;
 import org.eclipse.edc.dse.telemetry.services.ReportUtil;
-import org.eclipse.edc.dse.telemetry.services.storage.AzureStorageService;
+import org.eclipse.edc.dse.telemetry.services.storage.ReportStorageService;
 import org.eclipse.edc.spi.monitor.Monitor;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -22,6 +22,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.List;
@@ -86,14 +87,14 @@ class ReportGenerationServiceTest {
         ParticipantId participant1 = new ParticipantId(P1_DID, USER_EMAIL, PARTICIPANT_NAME);
         participantRepo.saveTransactional(participant1);
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
         Monitor mockedMonitor = mock(Monitor.class);
         doNothing().when(mockedMonitor).severe(any(String.class));
         doNothing().when(mockedMonitor).info(any(String.class));
 
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
 
         ParticipantId participant = reportGenerationService.findParticipant(PARTICIPANT_NAME);
         assertNotNull(participant);
@@ -119,10 +120,10 @@ class ReportGenerationServiceTest {
         doNothing().when(mockedMonitor).severe(any(String.class));
         doNothing().when(mockedMonitor).info(any(String.class));
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
         try (MockedStatic<ReportUtil> mockedStatic = Mockito.mockStatic(ReportUtil.class)) {
             AtomicReference<String> capturedContent = new AtomicReference<>();
             mockedStatic.when(() -> ReportUtil.generateCsvReportContent(any(), eq(true)))
@@ -163,10 +164,10 @@ class ReportGenerationServiceTest {
         doNothing().when(mockedMonitor).severe(any(String.class));
         doNothing().when(mockedMonitor).info(any(String.class));
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
         try (MockedStatic<ReportUtil> mockedStatic = Mockito.mockStatic(ReportUtil.class)) {
             AtomicReference<String> capturedContent = new AtomicReference<>();
             mockedStatic.when(() -> ReportUtil.generateCsvReportContent(any(), eq(false)))
@@ -213,10 +214,10 @@ class ReportGenerationServiceTest {
         doNothing().when(mockedMonitor).severe(any(String.class));
         doNothing().when(mockedMonitor).info(any(String.class));
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
         try (MockedStatic<ReportUtil> mockedStatic = Mockito.mockStatic(ReportUtil.class)) {
             AtomicReference<String> capturedContent = new AtomicReference<>();
             mockedStatic.when(() -> ReportUtil.generateCsvReportContent(any(), eq(true)))
@@ -266,10 +267,10 @@ class ReportGenerationServiceTest {
         doNothing().when(mockedMonitor).severe(any(String.class));
         doNothing().when(mockedMonitor).info(any(String.class));
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
         try (MockedStatic<ReportUtil> mockedStatic = Mockito.mockStatic(ReportUtil.class)) {
             AtomicReference<String> capturedContent = new AtomicReference<>();
             mockedStatic.when(() -> ReportUtil.generateCsvReportContent(any(), eq(false)))
@@ -324,10 +325,10 @@ class ReportGenerationServiceTest {
         doNothing().when(mockedMonitor).severe(any(String.class));
         doNothing().when(mockedMonitor).info(any(String.class));
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
         try (MockedStatic<ReportUtil> mockedStatic = Mockito.mockStatic(ReportUtil.class)) {
             AtomicReference<String> capturedContent = new AtomicReference<>();
             mockedStatic.when(() -> ReportUtil.generateCsvReportContent(any(), eq(true)))
@@ -384,10 +385,10 @@ class ReportGenerationServiceTest {
         doNothing().when(mockedMonitor).severe(any(String.class));
         doNothing().when(mockedMonitor).info(any(String.class));
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
         try (MockedStatic<ReportUtil> mockedStatic = Mockito.mockStatic(ReportUtil.class)) {
             AtomicReference<String> capturedContent = new AtomicReference<>();
             mockedStatic.when(() -> ReportUtil.generateCsvReportContent(any(), eq(false)))
@@ -429,11 +430,11 @@ class ReportGenerationServiceTest {
         telemetryEventRepo.save(createTelemetryEvent(CONTRACT_1, participant2, LocalDateTime.of(2025, Month.AUGUST, 23, 12, 2), 159, 200));
         em.getTransaction().commit();
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
         Monitor mockedMonitor = mock(Monitor.class);
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
 
         try (MockedStatic<ReportUtil> mockedStatic = Mockito.mockStatic(ReportUtil.class)) {
             AtomicReference<String> capturedContent = new AtomicReference<>();
@@ -472,11 +473,11 @@ class ReportGenerationServiceTest {
         telemetryEventRepo.save(createTelemetryEvent(CONTRACT_1, participant2, LocalDateTime.of(2025, Month.AUGUST, 23, 12, 2), 159, 200));
         em.getTransaction().commit();
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
         Monitor mockedMonitor = mock(Monitor.class);
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
 
         try (MockedStatic<ReportUtil> mockedStatic = Mockito.mockStatic(ReportUtil.class)) {
             AtomicReference<String> capturedContent = new AtomicReference<>();
@@ -516,11 +517,11 @@ class ReportGenerationServiceTest {
         telemetryEventRepo.save(createTelemetryEvent(CONTRACT_1, participant2, LocalDateTime.of(2025, Month.AUGUST, 23, 12, 2), 159, 200));
         em.getTransaction().commit();
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
         Monitor mockedMonitor = mock(Monitor.class);
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
         try (MockedStatic<ReportUtil> mockedStatic = Mockito.mockStatic(ReportUtil.class)) {
             AtomicReference<String> capturedContent = new AtomicReference<>();
             mockedStatic.when(() -> ReportUtil.generateCsvReportContent(any(), eq(true)))
@@ -559,11 +560,11 @@ class ReportGenerationServiceTest {
         telemetryEventRepo.save(createTelemetryEvent(CONTRACT_1, participant2, LocalDateTime.of(2025, Month.AUGUST, 23, 12, 2), 159, 200));
         em.getTransaction().commit();
 
-        AzureStorageService mockedAzureStorageService = mock(AzureStorageService.class);
-        doAnswer(c -> "objectUrl").when(mockedAzureStorageService).upload(any(), any());
+        ReportStorageService mockedStorageService = mock(ReportStorageService.class);
+        doAnswer(c -> "objectUrl").when(mockedStorageService).upload(any(), any());
 
         Monitor mockedMonitor = mock(Monitor.class);
-        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedAzureStorageService);
+        ReportGenerationService reportGenerationService = new ReportGenerationService(mockedMonitor, participantRepo, reportRepository, telemetryEventRepo, mockedStorageService, Clock.systemUTC());
         try (MockedStatic<ReportUtil> mockedStatic = Mockito.mockStatic(ReportUtil.class)) {
             AtomicReference<String> capturedContent = new AtomicReference<>();
             mockedStatic.when(() -> ReportUtil.generateCsvReportContent(any(), eq(false)))
@@ -599,7 +600,7 @@ class ReportGenerationServiceTest {
         telemetryEvent1.setId(UUID.randomUUID().toString());
         telemetryEvent1.setContractId(contractId);
         telemetryEvent1.setParticipant(participant);
-        telemetryEvent1.setResponseStatusCode(responseStatusCode);
+        telemetryEvent1.setResponseStatus(responseStatusCode);
         telemetryEvent1.setMsgSize(msgSize);
         telemetryEvent1.setCsvReport(null);
         telemetryEvent1.setTimestamp(timestamp);
