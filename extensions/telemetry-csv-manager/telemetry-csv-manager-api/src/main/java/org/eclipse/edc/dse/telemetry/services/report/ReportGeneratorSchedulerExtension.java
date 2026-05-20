@@ -26,22 +26,22 @@ public class ReportGeneratorSchedulerExtension implements ServiceExtension {
     @Setting(description = "Datasource Default Password", key = "edc.datasource.default.password")
     public String datasourceDefaultPassword;
 
-    @Setting(defaultValue = "s3", description = "Object Storage Type", key = "storage.type")
+    @Setting(defaultValue = "s3", description = "Object Storage Type", key = "edc.storage.type")
     public String storageType;
 
-    @Setting(description = "S3 Endpoint", key = "s3.endpoint", required = false)
+    @Setting(description = "S3 Endpoint", key = "edc.s3.endpoint", required = false)
     public String s3Endpoint;
 
-    @Setting(description = "S3 Access Key", key = "s3.access.key", required = false)
+    @Setting(description = "S3 Access Key", key = "edc.s3.access.key", required = false)
     public String s3AccessKey;
 
-    @Setting(description = "S3 Secret Key", key = "s3.secret.key", required = false)
+    @Setting(description = "S3 Secret Key", key = "edc.s3.secret.key", required = false)
     public String s3SecretKey;
 
-    @Setting(description = "S3 Bucket Name", key = "s3.bucket.name", required = false)
+    @Setting(description = "S3 Bucket Name", key = "edc.s3.bucket.name", required = false)
     public String s3BucketName;
 
-    @Setting(description = "S3 Region", key = "s3.region", required = false, defaultValue = "us-east-1")
+    @Setting(description = "S3 Region", key = "edc.s3.region", required = false, defaultValue = "eu-west-par")
     public String s3Region;
 
     @Inject
