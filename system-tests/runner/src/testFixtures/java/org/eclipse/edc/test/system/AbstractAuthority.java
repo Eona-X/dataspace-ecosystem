@@ -111,7 +111,7 @@ abstract class AbstractAuthority extends AbstractEntity {
                 .when()
                 .post("/v1alpha/participants/%s/attestations".formatted(toBase64(did())))
                 .then()
-                .statusCode(isCreatedOrConflict());
+                .statusCode(isStatus2xx());
 
         return dto.id();
     }
@@ -133,7 +133,7 @@ abstract class AbstractAuthority extends AbstractEntity {
                 .when()
                 .post("/v1alpha/participants/%s/attestations".formatted(toBase64(did())))
                 .then()
-                .statusCode(isCreatedOrConflict());
+                .statusCode(isStatus2xx());
 
         return dto.id();
     }
@@ -158,7 +158,7 @@ abstract class AbstractAuthority extends AbstractEntity {
                 .when()
                 .post("/v1alpha/participants/%s/credentialdefinitions".formatted(toBase64(did())))
                 .then()
-                .statusCode(isCreatedOrConflict());
+                .statusCode(isStatus2xx());
 
     }
 
@@ -180,7 +180,7 @@ abstract class AbstractAuthority extends AbstractEntity {
                 .when()
                 .post("/v1alpha/participants/%s/credentialdefinitions".formatted(toBase64(did())))
                 .then()
-                .statusCode(isCreatedOrConflict());
+                .statusCode(isStatus2xx());
 
     }
 
@@ -194,7 +194,7 @@ abstract class AbstractAuthority extends AbstractEntity {
                 .when()
                 .post("/v1alpha/participants/%s/holders".formatted(toBase64(did())))
                 .then()
-                .statusCode(isCreatedOrConflict());
+                .statusCode(isStatus2xx());
     }
 
     private void createParticipantMembershipAttestation(String name, String did) {
@@ -206,7 +206,7 @@ abstract class AbstractAuthority extends AbstractEntity {
                 .when()
                 .post("/v1alpha/participants/%s/attestation-membership".formatted(toBase64(did())))
                 .then()
-                .statusCode(isCreatedOrConflict());
+                .statusCode(isStatus2xx());
 
     }
 
@@ -223,7 +223,7 @@ abstract class AbstractAuthority extends AbstractEntity {
                 .when()
                 .post("/v1alpha/participants/%s/attestation-domain".formatted(toBase64(did())))
                 .then()
-                .statusCode(isCreatedOrConflict());
+                .statusCode(isStatus2xx());
     }
 
     private void createUnAuthorizedParticipantDomainAttestation(String did) {

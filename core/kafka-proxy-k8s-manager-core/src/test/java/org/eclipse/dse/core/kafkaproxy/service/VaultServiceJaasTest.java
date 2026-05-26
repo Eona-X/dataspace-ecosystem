@@ -106,7 +106,8 @@ class VaultServiceJaasTest {
                 "    \"https://w3id.org/edc/v0.0.1/ns/kafka.bootstrap.servers\": \"kafka:9092\"," +
                 "    \"https://w3id.org/edc/v0.0.1/ns/security.protocol\": \"SASL_SSL\"," +
                 "    \"https://w3id.org/edc/v0.0.1/ns/sasl.mechanism\": \"PLAIN\"," +
-                "    \"https://w3id.org/edc/v0.0.1/ns/sasl.jaas.config\": \"org.apache.kafka.common.security.plain.PlainLoginModule required username=\\\"user\\\" password=\\\"pass\\\" tls_ca_crt=\\\"my-ca-cert\\\";\"" +
+                "    \"https://w3id.org/edc/v0.0.1/ns/tls_ca_crt\": \"my-ca-cert\"," +
+                "    \"https://w3id.org/edc/v0.0.1/ns/sasl.jaas.config\": \"org.apache.kafka.common.security.plain.PlainLoginModule required username=\\\"user\\\" password=\\\"pass\\\";\"" +
                 "  }" +
                 "}";
         JsonNode node = objectMapper.readTree(json);

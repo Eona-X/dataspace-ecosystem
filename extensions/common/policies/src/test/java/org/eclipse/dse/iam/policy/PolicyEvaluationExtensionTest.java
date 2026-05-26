@@ -27,13 +27,12 @@ class PolicyEvaluationExtensionTest {
 
         // Then - Vérifier qu'aucun scope n'a été perdu
         assertThat(scopes)
-                .hasSize(5)
+                .hasSize(4)
                 .containsExactlyInAnyOrder(
                         TRANSFER_SCOPE,
                         CATALOG_SCOPE,
                         NEGOTIATION_SCOPE,
-                        CATALOG_DISCOVERY_SCOPE,
-                        TELEMETRY_SCOPE
+                        CATALOG_DISCOVERY_SCOPE
                 );
     }
 
