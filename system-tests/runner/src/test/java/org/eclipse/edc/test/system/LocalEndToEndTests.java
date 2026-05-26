@@ -133,11 +133,11 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
         Key key = Keys.hmacShaKeyFor(SECRET.getBytes());
         dummyJwt = Jwts.builder().header().add("alg", "HS256").add("typ", "JWT").and()
                 .claims(Map.of("roles", List.of("Participant.consumer")))
-                .signWith(key, SignatureAlgorithm.HS256).compact();
+                .signWith(key).compact();
 
         dummyJwtWithMultipleRoles = Jwts.builder().header().add("alg", "HS256").add("typ", "JWT").and()
                 .claims(Map.of("roles", List.of("Read.consumer", "Participant.consumer")))
-                .signWith(key, SignatureAlgorithm.HS256).compact();
+                .signWith(key).compact();
     }
 
     @AfterAll
