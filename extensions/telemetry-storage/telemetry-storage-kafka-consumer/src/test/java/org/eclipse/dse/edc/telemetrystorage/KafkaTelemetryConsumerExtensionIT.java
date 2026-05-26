@@ -43,7 +43,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @Testcontainers
-class KafkaTelemetryConsumerExtensionTest {
+class KafkaTelemetryConsumerExtensionIT {
 
     @Container
     private static final KafkaContainer KAFKA = new KafkaContainer(
