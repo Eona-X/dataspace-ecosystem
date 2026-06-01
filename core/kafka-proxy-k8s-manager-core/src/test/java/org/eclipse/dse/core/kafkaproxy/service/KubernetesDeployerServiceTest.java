@@ -6,8 +6,9 @@ import org.eclipse.dse.core.kafkaproxy.model.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 class KubernetesDeployerServiceTest {
@@ -41,35 +42,35 @@ class KubernetesDeployerServiceTest {
     }
 
     @Test
-    void createOrUpdateTlsCaConfigMap_missingBeginDelimiter_throwsIAE() {
+    void createOrUpdateTlsCaConfigMap_missingBeginDelimiter_throwsIllegalArgumentException() {
         String noBegin = "SGVsbG8gV29ybGQ=\n-----END CERTIFICATE-----";
         Exception ex = assertThrows(IllegalArgumentException.class, () -> invokeCreateOrUpdateTlsCaConfigMap(noBegin));
         assertTrue(ex.getMessage().contains("does not have valid PEM delimiters"));
     }
 
     @Test
-    void createOrUpdateTlsCaConfigMap_missingEndDelimiter_throwsIAE() {
+    void createOrUpdateTlsCaConfigMap_missingEndDelimiter_throwsIllegalArgumentException() {
         String noEnd = "-----BEGIN CERTIFICATE-----\nSGVsbG8gV29ybGQ=";
         Exception ex = assertThrows(IllegalArgumentException.class, () -> invokeCreateOrUpdateTlsCaConfigMap(noEnd));
         assertTrue(ex.getMessage().contains("does not have valid PEM delimiters"));
     }
 
     @Test
-    void createOrUpdateTlsCaConfigMap_emptyContent_throwsIAE() {
+    void createOrUpdateTlsCaConfigMap_emptyContent_throwsIllegalArgumentException() {
         String emptyContent = "-----BEGIN CERTIFICATE-----\n\n-----END CERTIFICATE-----";
         Exception ex = assertThrows(IllegalArgumentException.class, () -> invokeCreateOrUpdateTlsCaConfigMap(emptyContent));
         assertTrue(ex.getMessage().contains("is empty"));
     }
 
     @Test
-    void createOrUpdateTlsCaConfigMap_invalidBase64_throwsIAE() {
+    void createOrUpdateTlsCaConfigMap_invalidBase64_throwsIllegalArgumentException() {
         String badBase64 = "-----BEGIN CERTIFICATE-----\n!!!NotBase64!!!\n-----END CERTIFICATE-----";
         Exception ex = assertThrows(IllegalArgumentException.class, () -> invokeCreateOrUpdateTlsCaConfigMap(badBase64));
         assertTrue(ex.getMessage().contains("is not valid Base64"));
     }
 
     @Test
-    void createOrUpdateTlsCaConfigMap_nullCert_throwsIAE() {
+    void createOrUpdateTlsCaConfigMap_nullCert_throwsIllegalArgumentException() {
         Exception ex = assertThrows(IllegalArgumentException.class, () -> invokeCreateOrUpdateTlsCaConfigMap(null));
         assertTrue(ex.getMessage().contains("is empty"));
     }

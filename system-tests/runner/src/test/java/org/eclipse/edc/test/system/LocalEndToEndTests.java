@@ -485,7 +485,11 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
             @Override
             public Stream<? extends Arguments> provideArguments(ExtensionContext extensionContext) {
                 var msg = UUID.randomUUID().toString();
-                return Stream.of(Arguments.of(Map.of("message", msg), ASSET_ID_REST_API, msg), Arguments.of(Map.of("message", msg), ASSET_ID_REST_API_DOMAIN, msg), Arguments.of(Map.of("message", msg), ASSET_ID_REST_API_OAUTH2, msg), Arguments.of(Map.of(), ASSET_ID_REST_API_EMBEDDED_QUERY_PARAMS, EMBEDDED_QUERY_PARAM));
+                return Stream.of(
+                        Arguments.of(Map.of("message", msg), ASSET_ID_REST_API, msg),
+                        Arguments.of(Map.of("message", msg), ASSET_ID_REST_API_DOMAIN, msg),
+                        Arguments.of(Map.of("message", msg), ASSET_ID_REST_API_OAUTH2, msg),
+                        Arguments.of(Map.of(), ASSET_ID_REST_API_EMBEDDED_QUERY_PARAMS, EMBEDDED_QUERY_PARAM));
             }
         }
 
@@ -579,10 +583,16 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                 root.put("participantId", participantDid);
                 root.put("responseStatusCode", responseStatusCode);
                 root.put("msgSize", msgSize);
-                if (csvId != null) root.put("csvId", csvId); else root.putNull("csvId");
+                if (csvId != null) {
+                    root.put("csvId", csvId);
+                } else {
+                    root.putNull("csvId");
+                }
                 root.put("timestamp", timestamp.toInstant().toString());
                 return OBJECT_MAPPER.writeValueAsString(root);
-            } catch (Exception e) { throw new RuntimeException(e); }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
 
         public static String buildGenerationJson(String participantName, Integer month, Integer year) {
@@ -592,19 +602,26 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
                 root.put("month", month);
                 root.put("year", year);
                 return OBJECT_MAPPER.writeValueAsString(root);
-            } catch (Exception e) { throw new RuntimeException(e); }
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
 
         @Test
         void testReportGenerationSucceeds() {
             String ctId = UUID.randomUUID().toString();
-            int month = 9; int year = 2025;
+            int month = 9;
+            int year = 2025;
             Timestamp timestamp = Timestamp.valueOf(LocalDateTime.of(year, month, 20, 20, 18));
             given().baseUri(AUTHORITY.telemetryUrl()).contentType(JSON).body(buildTelemetryJson("1", ctId, CONSUMER.did(), 200, 20, null, timestamp)).post().then().statusCode(201);
             given().baseUri(AUTHORITY.telemetryUrl()).contentType(JSON).body(buildTelemetryJson("2", ctId, PROVIDER.did(), 200, 20, null, timestamp)).post().then().statusCode(201);
             given().baseUri(AUTHORITY.csvManagerUrl()).body(buildGenerationJson(CONSUMER.name(), month, year)).contentType(JSON).post().then().statusCode(201);
-            
-            Response response = given().baseUri(AUTHORITY.csvManagerUrl()).params(Map.of("month", month, "year", year)).contentType(JSON).header("Authorization", "Bearer " + dummyJwt).get().then().statusCode(200).contentType(containsString("text/csv")).extract().response();
+
+            Response response = given().baseUri(AUTHORITY.csvManagerUrl())
+                    .params(Map.of("month", month, "year", year))
+                    .contentType(JSON)
+                    .header("Authorization", "Bearer " + dummyJwt)
+                    .get().then().statusCode(200).contentType(containsString("text/csv")).extract().response();
             String expected = REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO + "\n" + ctId + "," + PROVIDER.name() + "," + 200 + "," + 0.02 + "," + 1;
             assertEquals(expected, response.getBody().asString().trim());
         }
@@ -612,10 +629,15 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
         @Test
         void testReportGenerationWithOnlyOnePartySucceeds() {
             String ctId = UUID.randomUUID().toString();
-            int month = 12; int year = 2025;
+            int month = 12;
+            int year = 2025;
             given().baseUri(AUTHORITY.telemetryUrl()).contentType(JSON).body(buildTelemetryJson("3", ctId, CONSUMER.did(), 400, 20, null, Timestamp.valueOf(LocalDateTime.of(year, month, 20, 20, 18)))).post().then().statusCode(201);
             given().baseUri(AUTHORITY.csvManagerUrl()).body(buildGenerationJson(CONSUMER.name(), month, year)).contentType(JSON).post().then().statusCode(201);
-            Response response = given().baseUri(AUTHORITY.csvManagerUrl()).params(Map.of("month", month, "year", year)).contentType(JSON).header("Authorization", "Bearer " + dummyJwt).get().then().statusCode(200).contentType(containsString("text/csv")).extract().response();
+            Response response = given().baseUri(AUTHORITY.csvManagerUrl())
+                    .params(Map.of("month", month, "year", year))
+                    .contentType(JSON)
+                    .header("Authorization", "Bearer " + dummyJwt)
+                    .get().then().statusCode(200).contentType(containsString("text/csv")).extract().response();
             String expected = REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO + "\n" + ctId + ",N/A," + 400 + "," + 0.02 + "," + 1;
             assertEquals(expected, response.getBody().asString().trim());
         }
@@ -623,7 +645,8 @@ public class LocalEndToEndTests extends AbstractEndToEndTests {
         @Test
         void testRetrieveReportWithNonExistentParticipantFails() {
             String ctId = UUID.randomUUID().toString();
-            int month = 1; int year = 2025;
+            int month = 1;
+            int year = 2025;
             given().baseUri(AUTHORITY.telemetryUrl()).contentType(JSON).body(buildTelemetryJson("4", ctId, CONSUMER.did(), 200, 20, null, Timestamp.valueOf(LocalDateTime.of(year, month, 20, 20, 18)))).post().then().statusCode(201);
             given().baseUri(AUTHORITY.csvManagerUrl()).body(buildGenerationJson(CONSUMER.name(), month, year)).contentType(JSON).post().then().statusCode(201);
             given().baseUri(AUTHORITY.csvManagerUrl()).params(Map.of("month", month, "year", year)).contentType(JSON).header("Authorization", "Bearer " + dummyJwtNonExistentParticipant).get().then().statusCode(403);

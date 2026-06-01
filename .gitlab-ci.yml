@@ -66,6 +66,7 @@ compile:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "dev"
     - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
 
 unit-tests:
@@ -147,6 +148,27 @@ openapi-doc:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_REF_NAME == "main"
     - if: $CI_COMMIT_REF_NAME == "dev"
+
+checkstyle-dev-commit:
+  stage: verify
+  image: eclipse-temurin:17-jdk
+  script:
+    - ./gradlew checkstyleMain
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+    - if: $CI_COMMIT_REF_NAME == "main"
+
+  allow_failure: true
+
+checkstyle-mr-target-dev:
+  stage: verify
+  image: eclipse-temurin:17-jdk
+  script:
+    - ./gradlew checkstyleMain checkstyleTest
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_REF_NAME == "dev"
+  allow_failure: false
 
 shadow-jar:
   extends: .gradle

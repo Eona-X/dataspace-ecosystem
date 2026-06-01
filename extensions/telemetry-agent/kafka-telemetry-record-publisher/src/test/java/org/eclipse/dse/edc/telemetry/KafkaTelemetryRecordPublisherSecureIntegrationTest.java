@@ -31,15 +31,18 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.eclipse.dse.edc.telemetry.testutil.KafkaTestUtils.TEST_CONTRACT;
 import static org.eclipse.dse.edc.telemetry.testutil.KafkaTestUtils.TEST_PARTICIPANT;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * Secure Integration Test for the Kafka Telemetry pipeline.
  */
 @ExtendWith(MockitoExtension.class)
 @Testcontainers
-class KafkaTelemetryRecordPublisherSecureIT {
+class KafkaTelemetryRecordPublisherSecureIntegrationTest {
 
     private static final String SASL_USER = "dev-telemetry";
     private static final String SASL_PASSWORD = "password";
@@ -53,10 +56,10 @@ class KafkaTelemetryRecordPublisherSecureIT {
             .withEnv("KAFKA_SASL_ENABLED_MECHANISMS", "PLAIN")
             .withEnv("KAFKA_LISTENER_NAME_PLAINTEXT_SASL_ENABLED_MECHANISMS", "PLAIN")
             .withEnv("KAFKA_LISTENER_NAME_PLAINTEXT_PLAIN_SASL_JAAS_CONFIG",
-                    "org.apache.kafka.common.security.plain.PlainLoginModule required "
-                            + "username=\"" + ADMIN_USERNAME + "\" password=\"" + ADMIN_PASSWORD + "\" "
-                            + "user_" + ADMIN_USERNAME + "=\"" + ADMIN_PASSWORD + "\" "
-                            + "user_" + SASL_USER + "=\"" + SASL_PASSWORD + "\";");
+                    "org.apache.kafka.common.security.plain.PlainLoginModule required " +
+                            "username=\"" + ADMIN_USERNAME + "\" password=\"" + ADMIN_PASSWORD + "\" " +
+                            "user_" + ADMIN_USERNAME + "=\"" + ADMIN_PASSWORD + "\" " +
+                            "user_" + SASL_USER + "=\"" + SASL_PASSWORD + "\";");
 
     private final TypeManager typeManager = new JacksonTypeManager();
 
@@ -155,8 +158,8 @@ class KafkaTelemetryRecordPublisherSecureIT {
         props.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, "SASL_PLAINTEXT");
         props.put(SaslConfigs.SASL_MECHANISM, "PLAIN");
         props.put(SaslConfigs.SASL_JAAS_CONFIG,
-                "org.apache.kafka.common.security.plain.PlainLoginModule required "
-                        + "username=\"" + ADMIN_USERNAME + "\" password=\"" + ADMIN_PASSWORD + "\";");
+                "org.apache.kafka.common.security.plain.PlainLoginModule required " +
+                        "username=\"" + ADMIN_USERNAME + "\" password=\"" + ADMIN_PASSWORD + "\";");
 
         return props;
     }

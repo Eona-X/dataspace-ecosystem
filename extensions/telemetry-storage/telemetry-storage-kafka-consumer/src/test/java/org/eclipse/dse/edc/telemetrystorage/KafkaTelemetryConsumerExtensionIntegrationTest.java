@@ -43,7 +43,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @Testcontainers
-class KafkaTelemetryConsumerExtensionIT {
+class KafkaTelemetryConsumerExtensionIntegrationTest {
 
     @Container
     private static final KafkaContainer KAFKA = new KafkaContainer(
@@ -89,8 +89,8 @@ class KafkaTelemetryConsumerExtensionIT {
         sendRecord(record);
 
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
-            verify(store, atLeastOnce()).save(argThat(event ->
-                    TEST_CONTRACT.equals(event.contractId())))
+                verify(store, atLeastOnce()).save(argThat(event ->
+                        TEST_CONTRACT.equals(event.contractId())))
         );
     }
 

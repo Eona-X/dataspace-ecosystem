@@ -7,6 +7,7 @@ plugins {
     id("com.bmuschko.docker-remote-api") version "9.3.4"
     id("com.github.johnrengelman.shadow") version "8.1.1"
     alias(libs.plugins.edc.build)
+    checkstyle
 }
 
 afterEvaluate {
@@ -55,8 +56,16 @@ allprojects {
     }
 
     configure<CheckstyleExtension> {
-        configFile = rootProject.file("resources/checkstyle-config.xml")
+        toolVersion = "10.12.4"
+        configFile = rootProject.file("resources/checkstyle.xml")
         configDirectory.set(rootProject.file("resources"))
+        isIgnoreFailures = false
+
+        val suppressionFile = rootProject.file("resources/checkstyle-suppressions.xml")
+        configProperties = mapOf(
+            "org.checkstyle.google.suppressionfilter.config" to suppressionFile.absolutePath,
+            "checkstyle.suppressions.file" to suppressionFile.absolutePath
+        )
     }
 
     // Force secure Netty version to fix vulnerable component: netty-codec-http2
