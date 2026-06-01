@@ -4,13 +4,17 @@ import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.ws.rs.core.Response;
 
-@OpenAPIDefinition(security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")})
+@OpenAPIDefinition(info = @Info(title = "Control Plane Federated Catalog Filter API",
+        description = "Participant-facing API to call the filtering of the federated catalog from the control plane",
+        version = "1"),
+        security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")})
 @Tag(name = "Federated Catalog Filter Endpoint for Participant Control-Plane",
         description = "A service that allows participants to call the filtering of the federated catalog")
 @SecurityScheme(

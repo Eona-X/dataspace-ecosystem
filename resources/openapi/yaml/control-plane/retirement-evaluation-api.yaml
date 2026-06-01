@@ -1,10 +1,11 @@
 openapi: 3.0.1
 info:
-  description: With this API clients can retire an active Contract Agreement. Clients can also list all retired agreements.
+  description: With this API clients can retire an active Contract Agreement. Clients
+    can also list all retired agreements.
   title: Agreements Retirement API
-  version: 1.0.0
-servers:
-- url: /
+security:
+- bearerAuth: []
+- apiKeyAuth: []
 paths:
   /v3/contractagreements/retirements:
     post:
@@ -49,7 +50,8 @@ paths:
       - Agreements Retirement
   /v3/contractagreements/retirements/{agreementId}:
     delete:
-      description: "Removes a contract agreement from the retired list, reactivating it."
+      description: "Removes a contract agreement from the retired list, reactivating\
+        \ it."
       operationId: reactivateRetiredV3
       parameters:
       - description: The contract agreement id
@@ -86,10 +88,77 @@ components:
           type: string
         type:
           type: string
-    RetirementExample:
+    JsonArray:
+      type: array
+      items:
+        $ref: "#/components/schemas/JsonValue"
+      properties:
+        empty:
+          type: boolean
+        first:
+          $ref: "#/components/schemas/JsonValue"
+        last:
+          $ref: "#/components/schemas/JsonValue"
+        valueType:
+          type: string
+          enum:
+          - ARRAY
+          - OBJECT
+          - STRING
+          - NUMBER
+          - "TRUE"
+          - "FALSE"
+          - "NULL"
+    JsonObject:
       type: object
+      additionalProperties:
+        $ref: "#/components/schemas/JsonValue"
+      properties:
+        empty:
+          type: boolean
+        valueType:
+          type: string
+          enum:
+          - ARRAY
+          - OBJECT
+          - STRING
+          - NUMBER
+          - "TRUE"
+          - "FALSE"
+          - "NULL"
+    JsonValue:
+      type: object
+      properties:
+        valueType:
+          type: string
+          enum:
+          - ARRAY
+          - OBJECT
+          - STRING
+          - NUMBER
+          - "TRUE"
+          - "FALSE"
+          - "NULL"
+    Retirement Example:
+      type: object
+      example:
+        '@context':
+          eonax: https://w3id.org/eonax/v0.0.1/ns/
+          edc: https://w3id.org/edc/v0.0.1/ns/
+        edc:agreementId: contract-agreement-id
+        eonax:reason: This contract agreement was retired since the physical counterpart
+          is no longer valid.
       properties:
         '@id':
           type: string
         reason:
           type: string
+  securitySchemes:
+    apiKeyAuth:
+      in: header
+      name: x-api-key
+      type: apiKey
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http

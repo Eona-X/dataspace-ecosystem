@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
+import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
@@ -27,7 +28,10 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.edc.FilterRequest;
 
 
-@OpenAPIDefinition(security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")})
+@OpenAPIDefinition(info = @Info(title = "Federated Catalog Filter API",
+        description = "Filters assets in the federated catalog based on participant verifiable credentials",
+        version = "1"),
+        security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")})
 @Tag(name = "Federated Catalog Filter",
         description = "A service that allows the filtering of the assets in the federated catalog based on participant vcs")
 @SecurityScheme(

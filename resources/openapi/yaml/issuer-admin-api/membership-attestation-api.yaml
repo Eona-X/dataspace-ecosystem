@@ -3,6 +3,9 @@ info:
   description: This API is used to manipulate membership attestations
   title: Issuer Service Membership Attestation API
   version: "1"
+security:
+- bearerAuth: []
+- apiKeyAuth: []
 paths:
   /v1alpha/participants/{participantContextId}/attestation-membership:
     post:
@@ -39,6 +42,9 @@ paths:
                   $ref: "#/components/schemas/ApiErrorDetail"
           description: "Can't add the membership attestation, because a object with\
             \ the same ID already exists"
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
       tags:
       - Membership Attestation Admin API
     put:
@@ -84,6 +90,9 @@ paths:
                   $ref: "#/components/schemas/ApiErrorDetail"
           description: Can't update the membership attestation because it was not
             found.
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
       tags:
       - Membership Attestation Admin API
   /v1alpha/participants/{participantContextId}/attestation-membership/request:
@@ -118,6 +127,9 @@ paths:
                 items:
                   $ref: "#/components/schemas/ApiErrorDetail"
           description: "Request body was malformed, or the request could not be processed"
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
       tags:
       - Membership Attestation Admin API
   /v1alpha/participants/{participantContextId}/attestation-membership/{id}:
@@ -154,6 +166,9 @@ paths:
                 items:
                   $ref: "#/components/schemas/ApiErrorDetail"
           description: Can't delete membership attestation because it was not found.
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
       tags:
       - Membership Attestation Admin API
 components:
@@ -223,3 +238,12 @@ components:
           enum:
           - ASC
           - DESC
+  securitySchemes:
+    apiKeyAuth:
+      in: header
+      name: x-api-key
+      type: apiKey
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http

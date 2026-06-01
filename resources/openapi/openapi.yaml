@@ -1,0 +1,813 @@
+openapi: 3.0.1
+info:
+  title: Dataspace Ecosystem APIs
+  description: Merged OpenAPI specification for all Dataspace Ecosystem extensions
+  license:
+    name: "The Apache License, Version 2.0"
+    url: http://www.apache.org/licenses/LICENSE-2.0.txt
+  version: 0.14.0
+servers:
+- url: /
+security:
+- bearerAuth: []
+- apiKeyAuth: []
+tags:
+- name: Data Plane public API
+  description: "The public API of the Data Plane is a data proxy enabling a data consumer\
+    \ to actively querydata from the provider data source (e.g. backend Rest API,\
+    \ internal database...) through its Data Plane instance. Thus the Data Plane is\
+    \ the only entry/output door for the data, which avoids the provider to expose directly\
+    \ its data externally. The Data Plane public API being a proxy, it supports all\
+    \ verbs (i.e. GET, POST, PUT, PATCH, DELETE), which can then conveyed until the\
+    \ data source is required. This is especially useful when the actual data source is\
+    \ a Rest API itself.In the same manner, any set of arbitrary query parameters,\
+    \ path parameters and request body are supported (in the limits fixed by the HTTP\
+    \ server) and can also conveyed to the actual data source."
+paths:
+  /billing-reports:
+    get:
+      tags:
+      - Telemetry CSV Manager API
+      description: Retrieves Reports
+      operationId: getReport
+      parameters:
+      - name: month
+        in: query
+        description: Target month
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+          format: int32
+      - name: year
+        in: query
+        description: Target year
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: integer
+          format: int32
+      responses:
+        "200":
+          description: The telemetry event was processed successfully
+          content:
+            text/csv:
+              schema:
+                type: string
+        "400":
+          description: Invalid date range provided
+          content:
+            application/json:
+              schema:
+                type: string
+        "401":
+          description: Invalid JWT token
+          content:
+            application/json:
+              schema:
+                type: string
+        "403":
+          description: "Missing/invalid participant in roles, unexpected number of\
+            \ participant roles or participant does not exist"
+          content:
+            application/json:
+              schema:
+                type: string
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                type: string
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: string
+  /telemetry-events:
+    post:
+      tags:
+      - Telemetry Storage API
+      description: Processes a telemetry event.
+      operationId: processTelemetryEvent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelemetryEventDto"
+      responses:
+        "200":
+          description: The telemetry event was processed successfully.
+        "400":
+          description: "Request body was malformed, or the request could not be processed"
+          content:
+            application/json:
+              schema:
+                type: string
+  /v1alpha/jwks.json:
+    get:
+      operationId: getJwks
+      responses:
+        default:
+          description: default response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+  /v1alpha/participants/{participantContextId}/attestation-domain:
+    put:
+      tags:
+      - Domain Attestation Admin API
+      description: Updates domain attestation.
+      operationId: updateDomainAttestation
+      parameters:
+      - name: participantContextId
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DomainAttestation"
+      responses:
+        "204":
+          description: The domain attestation was updated successfully.
+        "400":
+          description: "Request body was malformed, or the request could not be processed"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+        "401":
+          description: "The request could not be completed, because either the authentication\
+            \ was missing or was not valid."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+        "404":
+          description: Can't update the domain attestation because it was not found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+    post:
+      tags:
+      - Domain Attestation Admin API
+      description: Adds a new domain attestation.
+      operationId: createDomainAttestation
+      parameters:
+      - name: participantContextId
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DomainAttestation"
+      responses:
+        "204":
+          description: The domain attestation was added successfully.
+        "400":
+          description: "Request body was malformed, or the request could not be processed"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+        "409":
+          description: "Can't add the domain attestation, because a object with the\
+            \ same ID already exists"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+  /v1alpha/participants/{participantContextId}/attestation-domain/request:
+    post:
+      tags:
+      - Domain Attestation Admin API
+      description: Gets all domain attestations for a certain query.
+      operationId: queryDomainAttestations
+      parameters:
+      - name: participantContextId
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuerySpec"
+      responses:
+        "200":
+          description: A list of domain attestations metadata.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DomainAttestation"
+        "400":
+          description: "Request body was malformed, or the request could not be processed"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+  /v1alpha/participants/{participantContextId}/attestation-domain/{id}:
+    delete:
+      tags:
+      - Domain Attestation Admin API
+      description: Delete domain attestation.
+      operationId: deleteDomainAttestation
+      parameters:
+      - name: participantContextId
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: The domain attestation was deleted successfully.
+        "400":
+          description: "Request body was malformed, or the request could not be processed"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+        "404":
+          description: Can't delete domain attestation because it was not found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+  /v1alpha/participants/{participantContextId}/attestation-membership:
+    put:
+      tags:
+      - Membership Attestation Admin API
+      description: Updates membership attestation.
+      operationId: updateMembershipAttestation
+      parameters:
+      - name: participantContextId
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MembershipAttestationDto"
+      responses:
+        "204":
+          description: The membership attestation was updated successfully.
+        "400":
+          description: "Request body was malformed, or the request could not be processed"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+        "401":
+          description: "The request could not be completed, because either the authentication\
+            \ was missing or was not valid."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+        "404":
+          description: Can't update the membership attestation because it was not
+            found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+    post:
+      tags:
+      - Membership Attestation Admin API
+      description: Adds a new membership attestation.
+      operationId: createMembershipAttestation
+      parameters:
+      - name: participantContextId
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MembershipAttestationDto"
+      responses:
+        "201":
+          description: The membership attestation was added successfully.
+        "400":
+          description: "Request body was malformed, or the request could not be processed"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+        "409":
+          description: "Can't add the membership attestation, because a object with\
+            \ the same ID already exists"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+  /v1alpha/participants/{participantContextId}/attestation-membership/request:
+    post:
+      tags:
+      - Membership Attestation Admin API
+      description: Gets all membership attestations for a certain query.
+      operationId: queryMembershipAttestations
+      parameters:
+      - name: participantContextId
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuerySpec"
+      responses:
+        "200":
+          description: A list of membership attestations metadata.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MembershipAttestation"
+        "400":
+          description: "Request body was malformed, or the request could not be processed"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+  /v1alpha/participants/{participantContextId}/attestation-membership/{id}:
+    delete:
+      tags:
+      - Membership Attestation Admin API
+      description: Delete membership attestation.
+      operationId: deleteMembershipAttestation
+      parameters:
+      - name: participantContextId
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: id
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: The membership attestation was deleted successfully.
+        "400":
+          description: "Request body was malformed, or the request could not be processed"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+        "404":
+          description: Can't delete membership attestation because it was not found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+  /v1alpha/sas-token:
+    get:
+      description: Return a SAS token for publishing telemetry records.
+      operationId: generateToken
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Token was generated successfully.
+        "400":
+          description: Request body was malformed
+        "500":
+          description: Server failed to generate token
+      security:
+      - bearerAuth: []
+      - apiKeyAuth: []
+  /v3/contractagreements/retirements:
+    post:
+      tags:
+      - Agreements Retirement
+      description: Retires an active contract agreement.
+      operationId: retireAgreementV3
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RetirementExample"
+      responses:
+        "204":
+          description: The contract agreement was successfully retired
+        "400":
+          description: Request body was malformed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+        "409":
+          description: The contract agreement is already retired
+  /v3/contractagreements/retirements/request:
+    post:
+      tags:
+      - Agreements Retirement
+      description: Get all retired contract agreements.
+      operationId: getAllRetiredV3
+      responses:
+        "200":
+          description: A list of retired contract agreements
+        "400":
+          description: Request body was malformed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+  /v3/contractagreements/retirements/{agreementId}:
+    delete:
+      tags:
+      - Agreements Retirement
+      description: "Removes a contract agreement from the retired list, reactivating\
+        \ it."
+      operationId: reactivateRetiredV3
+      parameters:
+      - name: agreementId
+        in: path
+        description: The contract agreement id
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "204":
+          description: The contract agreement is reactivated
+        "400":
+          description: Request body was malformed
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiErrorDetail"
+        "404":
+          description: No entry for the given agreementId was found
+  /{any}:
+    get:
+      tags:
+      - Data Plane public API
+      description: Send `GET` data query to the Data Plane.
+      operationId: get
+      responses:
+        "400":
+          description: Missing access token
+        "403":
+          description: Access token is expired or invalid
+        "500":
+          description: Failed to transfer data
+    put:
+      tags:
+      - Data Plane public API
+      description: Send `PUT` data query to the Data Plane.
+      operationId: put
+      responses:
+        "400":
+          description: Missing access token
+        "403":
+          description: Access token is expired or invalid
+        "500":
+          description: Failed to transfer data
+    post:
+      tags:
+      - Data Plane public API
+      description: Send `POST` data query to the Data Plane.
+      operationId: post
+      responses:
+        "400":
+          description: Missing access token
+        "403":
+          description: Access token is expired or invalid
+        "500":
+          description: Failed to transfer data
+    delete:
+      tags:
+      - Data Plane public API
+      description: Send `DELETE` data query to the Data Plane.
+      operationId: delete
+      responses:
+        "400":
+          description: Missing access token
+        "403":
+          description: Access token is expired or invalid
+        "500":
+          description: Failed to transfer data
+    head:
+      tags:
+      - Data Plane public API
+      description: Send `HEAD` data query to the Data Plane.
+      operationId: head
+      responses:
+        "400":
+          description: Missing access token
+        "403":
+          description: Access token is expired or invalid
+        "500":
+          description: Failed to transfer data
+    patch:
+      tags:
+      - Data Plane public API
+      description: Send `PATCH` data query to the Data Plane.
+      operationId: patch
+      responses:
+        "400":
+          description: Missing access token
+        "403":
+          description: Access token is expired or invalid
+        "500":
+          description: Failed to transfer data
+components:
+  schemas:
+    ApiErrorDetail:
+      type: object
+      properties:
+        invalidValue:
+          type: object
+        message:
+          type: string
+        path:
+          type: string
+        type:
+          type: string
+    Criterion:
+      type: object
+      properties:
+        operandLeft:
+          type: object
+        operandRight:
+          type: object
+        operator:
+          type: string
+    DomainAttestation:
+      type: object
+      properties:
+        domain:
+          type: string
+        holderId:
+          type: string
+        id:
+          type: string
+    DomainAttestationDto:
+      type: object
+      properties:
+        domain:
+          type: string
+        holderId:
+          type: string
+        id:
+          type: string
+    JsonArray:
+      type: array
+      properties:
+        empty:
+          type: boolean
+        first:
+          $ref: "#/components/schemas/JsonValue"
+        last:
+          $ref: "#/components/schemas/JsonValue"
+        valueType:
+          type: string
+          enum:
+          - ARRAY
+          - OBJECT
+          - STRING
+          - NUMBER
+          - "TRUE"
+          - "FALSE"
+          - "NULL"
+      items:
+        $ref: "#/components/schemas/JsonValue"
+    JsonObject:
+      type: object
+      properties:
+        empty:
+          type: boolean
+        valueType:
+          type: string
+          enum:
+          - ARRAY
+          - OBJECT
+          - STRING
+          - NUMBER
+          - "TRUE"
+          - "FALSE"
+          - "NULL"
+      additionalProperties:
+        $ref: "#/components/schemas/JsonValue"
+    JsonValue:
+      type: object
+      properties:
+        valueType:
+          type: string
+          enum:
+          - ARRAY
+          - OBJECT
+          - STRING
+          - NUMBER
+          - "TRUE"
+          - "FALSE"
+          - "NULL"
+    MembershipAttestation:
+      type: object
+      properties:
+        holderId:
+          type: string
+        id:
+          type: string
+        membershipStartDate:
+          type: string
+          format: date-time
+        membershipType:
+          type: string
+        name:
+          type: string
+    MembershipAttestationDto:
+      type: object
+      properties:
+        holderId:
+          type: string
+        id:
+          type: string
+        membershipType:
+          type: string
+        name:
+          type: string
+    QuerySpec:
+      type: object
+      properties:
+        filterExpression:
+          type: array
+          items:
+            $ref: "#/components/schemas/Criterion"
+        limit:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int32
+        sortField:
+          type: string
+        sortOrder:
+          type: string
+          enum:
+          - ASC
+          - DESC
+    Retirement Example:
+      type: object
+      properties:
+        '@id':
+          type: string
+        reason:
+          type: string
+      example:
+        '@context':
+          eonax: https://w3id.org/eonax/v0.0.1/ns/
+          edc: https://w3id.org/edc/v0.0.1/ns/
+        edc:agreementId: contract-agreement-id
+        eonax:reason: This contract agreement was retired since the physical counterpart
+          is no longer valid.
+    TelemetryEventDto:
+      type: object
+      properties:
+        contractId:
+          type: string
+        csvId:
+          type: integer
+          format: int32
+        id:
+          type: string
+        msgSize:
+          type: integer
+          format: int32
+        participantId:
+          type: string
+        responseStatusCode:
+          type: integer
+          format: int32
+        timestamp:
+          type: string
+          format: date-time
+    TokenRepresentation:
+      type: object
+      properties:
+        additional:
+          type: object
+          additionalProperties:
+            type: object
+        expiresIn:
+          type: integer
+          format: int64
+        token:
+          type: string
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      name: x-api-key
+      in: header
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
