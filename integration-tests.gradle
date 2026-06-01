@@ -1,0 +1,25 @@
+allprojects {
+    tasks.withType(Test).configureEach {
+        filter {
+            failOnNoMatchingTests = false
+
+            includeTestsMatching "*IT"
+            includeTestsMatching "*IntegrationTest"
+
+            includeTestsMatching "*StoreTest"
+
+            excludeTestsMatching "*EndToEndTest*"
+            excludeTestsMatching "*EndToEndTests*"
+        }
+    }
+}
+
+gradle.projectsEvaluated {
+    allprojects {
+        tasks.withType(Test).configureEach {
+            useJUnitPlatform {
+                excludeTags = ["SystemTest", "EndToEndTest"] as Set
+            }
+        }
+    }
+}

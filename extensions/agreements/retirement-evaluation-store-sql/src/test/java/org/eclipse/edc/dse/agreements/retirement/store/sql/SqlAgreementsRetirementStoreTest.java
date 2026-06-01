@@ -30,9 +30,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.charset.StandardCharsets;
 
 @PostgresqlIntegrationTest
 @ExtendWith(PostgresqlStoreSetupExtension.class)
@@ -47,8 +47,13 @@ class SqlAgreementsRetirementStoreTest extends AgreementsRetirementStoreTestBase
         store = new SqlAgreementsRetirementStore(extension.getDataSourceRegistry(), extension.getDatasourceName(),
                 extension.getTransactionContext(), typeManager.getMapper(), queryExecutor, statements);
 
-        var schema = Files.readString(Paths.get("./docs/schema.sql"));
-        extension.runQuery(schema);
+        try (var stream = getClass().getResourceAsStream("/schema.sql")) {
+            if (stream == null) {
+                throw new FileNotFoundException("schema.sql not found in the classpath");
+            }
+            var schema = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            extension.runQuery(schema);
+        }
     }
 
     @AfterEach

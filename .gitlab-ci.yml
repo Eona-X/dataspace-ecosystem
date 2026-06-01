@@ -1,8 +1,11 @@
 stages:
-  - test
-  - build
+  - compile
+  - verify
+  - package
+  - publish
 
 default:
+  image: ${REGISTRY_HOST}/${REGISTRY_NS_TOOLS}/gradle:8.8.0-jdk17-jammy
   cache:
     key:
       files:
@@ -11,35 +14,85 @@ default:
       - cache/caches/
       - cache/notifications/
       - cache/wrapper/
+  interruptible: true
 
-unit-tests:
-  stage: test
-  image: ${REGISTRY_HOST}/${REGISTRY_NS_TOOLS}/gradle:8.8.0-jdk17-jammy
+compile:
+  stage: compile
   variables:
     GRADLE_USER_HOME: "$CI_PROJECT_DIR/cache"
   script:
-    - ./gradlew test --init-script unit-tests-only.gradle
+    - ./gradlew classes testClasses --build-cache
   cache:
     policy: pull-push
   artifacts:
-    when: always
     paths:
-      - "**/build/reports/tests/"
-    reports:
-      junit:
-        - "**/build/test-results/test/TEST-*.xml"
-  interruptible: true
+      - "**/build/classes/"
+      - "**/build/resources/"
+      - "**/build/generated/"
+    expire_in: 1 hour
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_REF_NAME == "main"
     - if: $CI_COMMIT_REF_NAME == "dev"
 
-build:
-  stage: build
+unit-tests:
+  stage: verify
+  needs: [compile]
+  variables:
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/cache"
+  script:
+    - ./gradlew test --build-cache --init-script unit-tests.gradle
+  cache:
+    policy: pull
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_REF_NAME == "main"
+    - if: $CI_COMMIT_REF_NAME == "dev"
+
+integration-tests:
+  stage: verify
+  needs: [compile]
   services:
     - name: ${REGISTRY_DIND_IMAGE}
       alias: docker
-      command: [ "--tls=false" ]
+      command: ["--tls=false"]
+  variables:
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/cache"
+    DOCKER_HOST: "tcp://docker:2375"
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+  script:
+    - ./gradlew test --build-cache --init-script integration-tests.gradle
+  cache:
+    policy: pull
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_REF_NAME == "main"
+    - if: $CI_COMMIT_REF_NAME == "dev"
+
+shadow-jar:
+  stage: package
+  needs: [compile]
+  variables:
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/cache"
+  script:
+    - ./gradlew shadowJar --build-cache
+  cache:
+    policy: pull
+  artifacts:
+    paths:
+      - "**/build/libs/*.jar"
+    expire_in: 1 hour
+  rules:
+    - if: $CI_COMMIT_REF_NAME == "main"
+    - if: $CI_COMMIT_REF_NAME == "dev"
+
+docker-build-push:
+  stage: publish
+  services:
+    - name: ${REGISTRY_DIND_IMAGE}
+      alias: docker
+      command: ["--tls=false"]
   variables:
     DOCKER_HOST: "tcp://docker:2375"
     DOCKER_TLS_CERTDIR: ""
@@ -50,17 +103,11 @@ build:
     policy: pull
   needs:
     - job: unit-tests
-      optional: true
-#  artifacts:
-#    paths:
-#      - launchers/control-plane/control-plane-postgresql-hashicorpvault/build/libs/*.jar
-#    expire_in: 30 days
-#    when: always
-  image:  ${REGISTRY_HOST}/${REGISTRY_NS_TOOLS}/gradle:8.8.0-jdk17-jammy
+    - job: integration-tests
+    - job: shadow-jar
+      artifacts: true
   script:
-#    - ./gradlew :launchers:control-plane:control-plane-postgresql-hashicorpvault:shadowJar
     - ./build.sh
   rules:
     - if: $CI_COMMIT_REF_NAME == "main"
     - if: $CI_COMMIT_REF_NAME == "dev"
-  interruptible: true
