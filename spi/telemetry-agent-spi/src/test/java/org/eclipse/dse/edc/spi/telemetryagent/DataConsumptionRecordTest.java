@@ -111,6 +111,7 @@ public class DataConsumptionRecordTest {
                         .build());
 
     }
+
     @Test
     public void verifyNullTimestampShouldFail() {
         var traceContext = Map.of("traceparent", "123");

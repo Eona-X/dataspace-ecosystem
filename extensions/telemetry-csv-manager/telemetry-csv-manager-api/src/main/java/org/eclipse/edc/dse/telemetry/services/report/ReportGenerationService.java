@@ -1,5 +1,7 @@
 package org.eclipse.edc.dse.telemetry.services.report;
 
+import dev.failsafe.Failsafe;
+import dev.failsafe.RetryPolicy;
 import org.eclipse.edc.dse.telemetry.model.ParticipantId;
 import org.eclipse.edc.dse.telemetry.model.Report;
 import org.eclipse.edc.dse.telemetry.model.TelemetryEvent;
@@ -12,8 +14,6 @@ import org.eclipse.edc.dse.telemetry.services.ReportUtil;
 import org.eclipse.edc.dse.telemetry.services.storage.ReportStorageService;
 import org.eclipse.edc.dse.telemetry.services.storage.StorageException;
 import org.eclipse.edc.spi.monitor.Monitor;
-import dev.failsafe.Failsafe;
-import dev.failsafe.RetryPolicy;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -78,8 +78,8 @@ public class ReportGenerationService {
                 generateReport(participant, oneMonthBeforeDate, false);
                 generateReport(participant, oneMonthBeforeDate, true);
             } catch (Exception e) {
-                monitor.severe("Failed to generate report for participant "
-                        + participant.getName() + ", continuing with next.", e);
+                monitor.severe("Failed to generate report for participant " +
+                        participant.getName() + ", continuing with next.", e);
             }
         }
     }

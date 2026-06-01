@@ -32,7 +32,6 @@ import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
-import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import org.eclipse.dse.core.kafkaproxy.model.DeploymentStatus;
 import org.eclipse.dse.core.kafkaproxy.model.EdrProperties;
 import org.eclipse.dse.core.kafkaproxy.model.Resource;
@@ -41,11 +40,9 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
@@ -57,7 +54,7 @@ import static org.eclipse.dse.core.kafkaproxy.config.KafkaProxyConfig.LARGEST_AV
 public class KubernetesDeployerService {
 
     private static final Logger LOGGER = Logger.getLogger(KubernetesDeployerService.class.getName());
-    private static final org.slf4j.Logger log = LoggerFactory.getLogger(KubernetesDeployerService.class);
+    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(KubernetesDeployerService.class);
     public static final String PROXY_PROVIDER_TLS_CA = "proxy-provider-tls-ca";
 
     private static final int KUBERNETES_MAX_NAME_LENGTH = 63;
@@ -791,7 +788,7 @@ public class KubernetesDeployerService {
         args.add(format("--dynamic-sequential-min-port=%d", port + 1));
 
         if ("PLAIN".equals(properties.getSaslMechanism())) {
-            log.info("SASL PLAIN authentication enabled");
+            LOG.info("SASL PLAIN authentication enabled");
             // SASL PLAIN authentication
             args.add("--sasl-enable");
 
@@ -801,7 +798,7 @@ public class KubernetesDeployerService {
 
             LOGGER.info("Adding SASL PLAIN authentication with credentials from secret");
         } else if ("OAUTHBEARER".equals(properties.getSaslMechanism()) && properties.hasOauth2Credentials()) {
-            log.info("OAuth2/OIDC authentication enabled");
+            LOG.info("OAuth2/OIDC authentication enabled");
             // OAuth2/OIDC authentication using SASL plugin with oidc-token-provider
             // This uses standard Kafka SASL OAUTHBEARER protocol (not gateway auth)
             args.add("--sasl-enable");

@@ -8,7 +8,6 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.eclipse.dse.iam.policy.CatalogDiscoveryPolicyContext.CATALOG_DISCOVERY_SCOPE;
-import static org.eclipse.dse.spi.telemetry.TelemetryPolicyContext.TELEMETRY_SCOPE;
 import static org.eclipse.edc.connector.controlplane.catalog.spi.policy.CatalogPolicyContext.CATALOG_SCOPE;
 import static org.eclipse.edc.connector.controlplane.contract.spi.policy.ContractNegotiationPolicyContext.NEGOTIATION_SCOPE;
 import static org.eclipse.edc.connector.controlplane.contract.spi.policy.TransferProcessPolicyContext.TRANSFER_SCOPE;

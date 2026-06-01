@@ -29,9 +29,8 @@
     </module>
     <!-- https://checkstyle.org/config_filters.html#SuppressionFilter -->
     <module name="SuppressionFilter">
-        <property name="file" value="${org.checkstyle.google.suppressionfilter.config}"
-                  default="resources/checkstyle-suppressions.xml"/>
-        <property name="optional" value="true"/>
+        <property name="file" value="${config_loc}/suppressions.xml"/>
+        <property name="optional" value="false"/>
     </module>
 
     <!-- Checks for whitespace                               -->
@@ -46,15 +45,14 @@
         <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
     </module>
 
-    <!-- Checks for header format                                   -->
+    <!-- Checks for header format that each file start with EDC license format -->
     <!-- See https://checkstyle.org/config_header.html#RegexpHeader -->
-    <!--    <module name="RegexpHeader">-->
-    <!--        <property name="severity" value="warning"/>-->
-    <!--        <property name="fileExtensions" value="java"/>-->
-    <!--        <property name="header"-->
-    <!--                  value="^/\*$\n^ \*  Copyright \(c\) 20\d\d((,| -) 20\d{2})? [A-Za-z].+\S$\n^ \*$\n^ \*  This program and the accompanying materials are made available under the$\n^ \*  terms of the Apache License, Version 2\.0 which is available at$\n^ \*  https://www\.apache\.org/licenses/LICENSE-2\.0$\n^ \*$\n^ \*  SPDX-License-Identifier: Apache-2\.0$\n^ \*$\n^ \*  Contributors:$\n^ \*       \S.*\S$\n^ \*$\n^ \*/$\n^$\n^package"/>-->
-    <!--        <property name="multiLines" value="11"/>-->
-    <!--    </module>-->
+<!--    <module name="RegexpHeader">-->
+<!--        <property name="fileExtensions" value="java"/>-->
+<!--        <property name="header"-->
+<!--                  value="^/\*$\n^ \*  Copyright \(c\) 20\d\d((,| -) 20\d{2})? [A-Za-z].+\S$\n^ \*$\n^ \*  This program and the accompanying materials are made available under the$\n^ \*  terms of the Apache License, Version 2\.0 which is available at$\n^ \*  https://www\.apache\.org/licenses/LICENSE-2\.0$\n^ \*(?!  SPDX-License-Identifier).*$\n^ \*  SPDX-License-Identifier: Apache-2\.0$\n^ \*$\n^ \*  Contributors:$\n^ \*       \S.*\S$\n^ \*$\n^ \*/$\n^$\n^package"/>-->
+<!--        <property name="multiLines" value="7,11"/>-->
+<!--    </module>-->
 
     <module name="TreeWalker">
         <module name="OuterTypeFilename"/>

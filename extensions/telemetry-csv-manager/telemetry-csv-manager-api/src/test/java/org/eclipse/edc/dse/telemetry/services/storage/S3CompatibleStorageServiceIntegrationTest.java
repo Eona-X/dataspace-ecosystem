@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 @Testcontainers
-class S3CompatibleStorageServiceIT {
+class S3CompatibleStorageServiceIntegrationTest {
 
     private static final String BUCKET_NAME = "test-bucket";
     private static final String ACCESS_KEY = "minioadmin";

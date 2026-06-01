@@ -196,8 +196,8 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
 
     private void pollLoop() {
         if (!state.compareAndSet(State.STARTING, State.RUNNING)) {
-            monitor.warning("Consumer thread started but state is already "
-                    + state.get() + " — aborting.");
+            monitor.warning("Consumer thread started but state is already " +
+                    state.get() + " — aborting.");
             return;
         }
 
@@ -235,9 +235,9 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
                         new OffsetAndMetadata(record.offset() + 1)
                 );
             } else {
-                monitor.severe("INFRASTRUCTURE DOWN — stopping consumer until restart. "
-                        + "Last attempted offset: " + record.offset()
-                        + " partition: " + record.partition());
+                monitor.severe("INFRASTRUCTURE DOWN — stopping consumer until restart. " +
+                        "Last attempted offset: " + record.offset() +
+                        " partition: " + record.partition());
 
                 state.compareAndSet(State.RUNNING, State.STOPPED);
                 safeCommitOffsets(offsetsToCommit);
@@ -260,8 +260,8 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
         try {
             consumer.commitSync(offsets);
         } catch (KafkaException e) {
-            monitor.severe("OFFSET COMMIT FAILED — offsets may be re-processed after restart: "
-                    + e.getMessage());
+            monitor.severe("OFFSET COMMIT FAILED — offsets may be re-processed after restart: " +
+                    e.getMessage());
         }
     }
 
@@ -280,14 +280,14 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
             if (processRecord(record)) {
                 return true;
             }
-            monitor.warning("Transient failure — retry " + (attempt + 1) + "/" + maxRetries
-                    + " for offset " + record.offset() + " in " + retryDelay + "ms");
+            monitor.warning("Transient failure — retry " + (attempt + 1) + "/" + maxRetries +
+                    " for offset " + record.offset() + " in " + retryDelay + "ms");
             sleep(retryDelay);
             retryDelay = Math.min(retryDelay * 2, maxRetryDelayMs);
         }
 
-        monitor.severe("MAX RETRIES EXHAUSTED for offset " + record.offset()
-                + " partition " + record.partition());
+        monitor.severe("MAX RETRIES EXHAUSTED for offset " + record.offset() +
+                " partition " + record.partition());
         return false;
     }
 
@@ -311,18 +311,18 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
             }
 
             if (result.getFailure().getReason() == StoreFailure.Reason.ALREADY_EXISTS) {
-                monitor.warning("DUPLICATE MESSAGE SKIPPED at offset " + record.offset()
-                        + " — already persisted (messageId: " + telemetryEvent.id() + ")");
+                monitor.warning("DUPLICATE MESSAGE SKIPPED at offset " + record.offset() +
+                        " — already persisted (messageId: " + telemetryEvent.id() + ")");
                 return true;
             }
 
-            monitor.severe("PERSISTENCE FAILED — RETRYING: offset " + record.offset()
-                    + " — " + result.getFailureDetail());
+            monitor.severe("PERSISTENCE FAILED — RETRYING: offset " + record.offset() +
+                    " — " + result.getFailureDetail());
             return false;
 
         } catch (EdcException | IllegalArgumentException e) {
-            monitor.severe("PERMANENT ERROR — SKIPPING message at offset " + record.offset()
-                    + " partition " + record.partition() + ": " + e.getMessage());
+            monitor.severe("PERMANENT ERROR — SKIPPING message at offset " + record.offset() +
+                    " partition " + record.partition() + ": " + e.getMessage());
             return true;
         }
     }
@@ -337,15 +337,15 @@ public class KafkaTelemetryConsumerExtension implements ServiceExtension {
 
     @Override
     public void shutdown() {
-        if (state.compareAndSet(State.RUNNING, State.STOPPED)
-                || state.compareAndSet(State.STARTING, State.STOPPED)) {
+        if (state.compareAndSet(State.RUNNING, State.STOPPED) ||
+                state.compareAndSet(State.STARTING, State.STOPPED)) {
 
             consumer.wakeup();
             executor.shutdown();
             try {
                 if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                    monitor.warning("Consumer thread did not terminate within "
-                            + SHUTDOWN_TIMEOUT_SECONDS + "s — forcing shutdown");
+                    monitor.warning("Consumer thread did not terminate within " +
+                            SHUTDOWN_TIMEOUT_SECONDS + "s — forcing shutdown");
                     executor.shutdownNow();
                 }
             } catch (InterruptedException e) {

@@ -28,6 +28,7 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.eclipse.dse.edc.telemetry.testutil.KafkaTestUtils.CONTRACT_ID;
@@ -36,11 +37,10 @@ import static org.eclipse.dse.edc.telemetry.testutil.KafkaTestUtils.TEST_PARTICI
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.atMostOnce;
 import static org.mockito.Mockito.verify;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 @ExtendWith(MockitoExtension.class)
 @Testcontainers
-class KafkaTelemetryRecordPublisherIT {
+class KafkaTelemetryRecordPublisherIntegrationTest {
 
     @Container
     private static final KafkaContainer KAFKA = new KafkaContainer(
