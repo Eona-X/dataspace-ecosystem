@@ -9,6 +9,21 @@ plugins {
     alias(libs.plugins.edc.build)
 }
 
+afterEvaluate {
+    extensions.findByName("openApiMerger")?.let { ext ->
+        (ext as com.rameshkp.openapi.merger.gradle.extensions.OpenApiMergerExtension).apply {
+            openApi {
+                openApiVersion.set("3.0.1")
+                info {
+                    title.set("Dataspace Ecosystem APIs")
+                    description.set("Merged OpenAPI specification for all Dataspace Ecosystem extensions")
+                    version.set(project.version.toString())
+                }
+            }
+        }
+    }
+}
+
 val annotationProcessorVersion: String by project
 val dseWebsiteUrl: String by project
 val dseScmConnection: String by project

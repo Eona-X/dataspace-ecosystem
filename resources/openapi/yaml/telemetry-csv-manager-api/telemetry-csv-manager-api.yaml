@@ -3,24 +3,27 @@ info:
   description: This API is used to generate billing reports
   title: Telemetry CSV Manager API
   version: "1"
+security:
+- bearerAuth: []
+- apiKeyAuth: []
 paths:
   /billing-reports:
     get:
       description: Retrieves Reports
       operationId: getReport
       parameters:
-        - description: Target month
-          in: query
-          name: month
-          schema:
-            type: integer
-            format: int32
-        - description: Target year
-          in: query
-          name: year
-          schema:
-            type: integer
-            format: int32
+      - description: Target month
+        in: query
+        name: month
+        schema:
+          type: integer
+          format: int32
+      - description: Target year
+        in: query
+        name: year
+        schema:
+          type: integer
+          format: int32
       responses:
         "200":
           content:
@@ -59,12 +62,14 @@ paths:
               schema:
                 type: string
           description: Internal server error
-      security:
-        - bearerAuth: []
       tags:
-        - Telemetry CSV Manager API
+      - Telemetry CSV Manager API
 components:
   securitySchemes:
+    apiKeyAuth:
+      in: header
+      name: x-api-key
+      type: apiKey
     bearerAuth:
       bearerFormat: JWT
       scheme: bearer
