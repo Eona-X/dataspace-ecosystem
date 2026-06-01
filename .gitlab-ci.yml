@@ -18,7 +18,7 @@ unit-tests:
   variables:
     GRADLE_USER_HOME: "$CI_PROJECT_DIR/cache"
   script:
-    - ./gradlew test -I init-ci.gradle
+    - ./gradlew test --init-script unit-tests-only.gradle
   cache:
     policy: pull-push
   artifacts:
