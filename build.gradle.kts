@@ -189,7 +189,6 @@ subprojects {
                 val registryNs = project.findProperty("registryNs")?.toString() ?: "local"
 
                 images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
-                images.add("${registryHost}/${registryNs}/${project.name}:latest")
                 // specify platform with the -Dplatform flag:
                 if (System.getProperty("platform") != null)
                     platform.set(System.getProperty("platform"))
@@ -214,7 +213,6 @@ subprojects {
                     val registryNs = project.findProperty("registryNs")?.toString() ?: "local"
 
                     images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
-                    images.add("${registryHost}/${registryNs}/${project.name}:latest")
                 }
                 // Ensure push happens after build
                 dockerPushTask.dependsOn(dockerTask)

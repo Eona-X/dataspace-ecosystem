@@ -157,9 +157,8 @@ val dockerTask = tasks.register("dockerize", DockerBuildImage::class) {
     
     if (dockerRegistry.isNotEmpty()) {
         images.add("$dockerRegistry/$dockerImageName:$dockerImageTag")
-        images.add("$dockerRegistry/$dockerImageName:latest")
     }
-    
+
     // specify platform with the -Dplatform flag:
     if (System.getProperty("platform") != null) {
         platform.set(System.getProperty("platform"))
@@ -182,7 +181,6 @@ val dockerPushTask: DockerPushImage = tasks.create("dockerPush", DockerPushImage
     group = "distribution"
     description = "Push Docker image to registry"
     images.add("${dockerRegistry}/${dockerImageName}:${dockerImageTag}")
-    images.add("${dockerRegistry}/${dockerImageName}:latest")
 }
 // Ensure push happens after build
 dockerPushTask.dependsOn(dockerTask)
