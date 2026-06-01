@@ -1,0 +1,16 @@
+allprojects {
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform {
+            excludeTags "ComponentTest", "IntegrationTest", "PostgresqlIntegrationTest", "EndToEndTest"
+        }
+
+        filter {
+            failOnNoMatchingTests = false
+
+            excludeTestsMatching "*IT"
+            excludeTestsMatching "*IntegrationTest"
+            excludeTestsMatching "*EndToEndTest"
+            excludeTestsMatching "*EndToEndTests"
+        }
+    }
+}

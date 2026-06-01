@@ -1,6 +1,39 @@
 stages:
+  - test
   - build
-  
+
+default:
+  cache:
+    key:
+      files:
+        - gradle/wrapper/gradle-wrapper.properties
+    paths:
+      - cache/caches/
+      - cache/notifications/
+      - cache/wrapper/
+
+unit-tests:
+  stage: test
+  image: ${REGISTRY_HOST}/${REGISTRY_NS_TOOLS}/gradle:8.8.0-jdk17-jammy
+  variables:
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/cache"
+  script:
+    - ./gradlew test --init-script unit-tests-only.gradle
+  cache:
+    policy: pull-push
+  artifacts:
+    when: always
+    paths:
+      - "**/build/reports/tests/"
+    reports:
+      junit:
+        - "**/build/test-results/test/TEST-*.xml"
+  interruptible: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_REF_NAME == "main"
+    - if: $CI_COMMIT_REF_NAME == "dev"
+
 build:
   stage: build
   services:
@@ -12,14 +45,12 @@ build:
     DOCKER_TLS_CERTDIR: ""
     DOCKER_DRIVER: overlay2
     DOCKER_CONFIG: "./gradle"
+    GRADLE_USER_HOME: "$CI_PROJECT_DIR/cache"
   cache:
-    key:
-      files:
-        - gradle/wrapper/gradle-wrapper.properties
-    paths:
-      - cache/caches/
-      - cache/notifications/
-      - cache/wrapper/
+    policy: pull
+  needs:
+    - job: unit-tests
+      optional: true
 #  artifacts:
 #    paths:
 #      - launchers/control-plane/control-plane-postgresql-hashicorpvault/build/libs/*.jar
@@ -32,3 +63,4 @@ build:
   rules:
     - if: $CI_COMMIT_REF_NAME == "main"
     - if: $CI_COMMIT_REF_NAME == "dev"
+  interruptible: true

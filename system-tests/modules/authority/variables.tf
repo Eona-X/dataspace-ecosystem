@@ -60,15 +60,3 @@ variable "kafka_group_id" {
   type        = string
   default     = "telemetry-storage-group"
 }
-
-variable "telemetry_credential_signer_alias" {
-  description = "Alias of the private key in Vault used for signing telemetry OIDC tokens"
-  type        = string
-  default     = "authority"
-}
-
-variable "telemetry_credential_public_key_alias" {
-  description = "Alias of the public key in Vault used for JWKS exposure"
-  type        = string
-  default     = "authority-pub"
-}
