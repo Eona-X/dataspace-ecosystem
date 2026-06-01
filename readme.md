@@ -1,12 +1,12 @@
 # Dataspace Ecosystem
 
-![Latest Release](https://img.shields.io/github/v/release/AmadeusITGroup/Dataspace_Ecosystem?label=release)
-![Contributors](https://img.shields.io/github/contributors/AmadeusITGroup/Dataspace_Ecosystem?color=blue)
+![Latest Release]()
+![Contributors]()
 
 ## 1. Overview
 
 The Dataspace Ecosystem enables interoperable, policy-governed, and auditable data exchange across organizational boundaries. It aligns with emerging dataspace standards (e.g. [GAIA-X](https://gaia-x.eu/) / IDS concepts) and leverages
-the [Eclipse EDC components](https://github.com/eclipse-edc) to build this ecosystem securely, using concepts like contracts, policies and verifiable credentials. This project is currently being developed by the [DXP Team](https://www.8ra.com/projects/dxp/) of [Amadeus](https://amadeus.com/en). 
+the [Eclipse EDC components](https://github.com/eclipse-edc) to build this ecosystem securely, using concepts like contracts, policies and verifiable credentials. This project is currently being developed by [Eona-X](https://eona-x.eu). 
 
 
 ## 2. Architecture
