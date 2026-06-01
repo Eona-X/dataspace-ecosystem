@@ -131,9 +131,17 @@ resource "kubernetes_job_v1" "minio_create_bucket" {
           command = ["/bin/sh", "-c"]
           args = [
             <<-EOT
-            mc alias set myminio http://minio-report-storage:9000 $access_key $secret_key;
-            mc mb myminio/reports || true;
-            mc anonymous set public myminio/reports;
+            echo "Waiting for MinIO server to start..."
+            for i in $(seq 1 30); do
+              if mc alias set myminio http://minio-report-storage:9000 $access_key $secret_key; then
+                echo "MinIO is ready."
+                break
+              fi
+              echo "MinIO not ready yet, retrying in 2 seconds ($i/30)..."
+              sleep 2
+            done
+            mc mb myminio/reports || true
+            mc anonymous set public myminio/reports
             EOT
           ]
 

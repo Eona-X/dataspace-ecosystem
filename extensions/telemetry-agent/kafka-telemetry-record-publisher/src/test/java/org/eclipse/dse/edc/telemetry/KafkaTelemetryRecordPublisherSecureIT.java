@@ -2,7 +2,6 @@ package org.eclipse.dse.edc.telemetry;
 
 import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -25,15 +24,11 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 import static org.eclipse.dse.edc.telemetry.testutil.KafkaTestUtils.TEST_CONTRACT;
 import static org.eclipse.dse.edc.telemetry.testutil.KafkaTestUtils.TEST_PARTICIPANT;
 import static org.mockito.ArgumentMatchers.contains;
@@ -164,18 +159,5 @@ class KafkaTelemetryRecordPublisherSecureIT {
                         + "username=\"" + ADMIN_USERNAME + "\" password=\"" + ADMIN_PASSWORD + "\";");
 
         return props;
-    }
-
-    private ConsumerRecords<String, String> pollUntilNonEmpty() {
-        AtomicReference<ConsumerRecords<String, String>> received = new AtomicReference<>();
-        await()
-                .atMost(30, SECONDS)
-                .pollInterval(Duration.ofMillis(300))
-                .untilAsserted(() -> {
-                    ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(500));
-                    assertThat(records).isNotEmpty();
-                    received.set(records);
-                });
-        return received.get();
     }
 }

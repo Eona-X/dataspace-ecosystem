@@ -118,10 +118,25 @@ resource "kubernetes_job" "vault-keygen-job" {
         container {
           name  = "keygen"
           image = "hashicorp/vault"
+          security_context {
+            capabilities {
+              add = ["IPC_LOCK"]
+            }
+          }
           command = [
             "sh",
             "-c",
             <<-EOF
+              set -e
+              echo "Waiting for Vault to be ready..."
+              for i in $(seq 1 30); do
+                if vault status >/dev/null 2>&1; then
+                  echo "Vault is ready."
+                  break
+                fi
+                echo "Vault not ready yet, retrying in 2 seconds ($i/30)..."
+                sleep 2
+              done
               echo "${tls_private_key.key-pair.public_key_pem}" > /tmp/publickey.pem
               echo "${tls_private_key.key-pair.private_key_pem}" > /tmp/privatekey.pem
 
