@@ -14,7 +14,6 @@ stages:
         - gradle/wrapper/gradle-wrapper.properties
     paths:
       - cache/caches/
-      - cache/caches/build-cache-1/
       - cache/notifications/
       - cache/wrapper/
   interruptible: true
@@ -149,26 +148,20 @@ openapi-doc:
     - if: $CI_COMMIT_REF_NAME == "main"
     - if: $CI_COMMIT_REF_NAME == "dev"
 
-checkstyle-dev-commit:
+checkstyle:
+  extends: .gradle
   stage: verify
-  image: eclipse-temurin:17-jdk
+  needs: [compile]
+  cache:
+    policy: pull
   script:
-    - ./gradlew checkstyleMain
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "dev"'
-    - if: $CI_COMMIT_REF_NAME == "main"
-
+    - ./gradlew checkstyleMain checkstyleTest --build-cache
   allow_failure: true
-
-checkstyle-mr-target-dev:
-  stage: verify
-  image: eclipse-temurin:17-jdk
-  script:
-    - ./gradlew checkstyleMain checkstyleTest
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_REF_NAME == "dev"
-  allow_failure: false
+      allow_failure: false
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "dev"
 
 shadow-jar:
   extends: .gradle
