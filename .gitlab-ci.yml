@@ -28,6 +28,8 @@ stages:
     - |
       git config --global user.name "${GITLAB_USER}"
       git config --global user.email "${GITLAB_USER}@eona-x.eu"
+      git config --global --add credential.helper "store --file ./.git-credentials"
+      echo "https://${GITLAB_USER}:${GITLAB_TOKEN}@${GITLAB_HOST}" > ./.git-credentials
       git config --global http.sslVerify false
       git clone "https://${GITLAB_USER}:${GITLAB_TOKEN}@${GITLAB_HOST}/eona-x/data-space/argocd-deployments.git" argocd-repo
       cd argocd-repo
