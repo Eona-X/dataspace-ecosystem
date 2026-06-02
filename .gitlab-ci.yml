@@ -197,6 +197,7 @@ docker-build-push:
     - echo $DOCKER_AUTH_CONFIG_DEV > ./gradle/config.json
     - |
       ./gradlew shadowJar dockerize dockerPush \
+        --build-cache \
         -PimageTag="${IMAGE_TAG}" \
         -PregistryHost="${REGISTRY_HOST}" \
         -PregistryNs=eona-x/dse \
