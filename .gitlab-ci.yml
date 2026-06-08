@@ -3,6 +3,9 @@ stages:
   - verify
   - package
   - deploy
+  - promote-uat
+  - promote-ppr
+  - promote-prd
 
 .gradle:
   image: ${REGISTRY_HOST}/${REGISTRY_NS_TOOLS}/gradle:8.8.0-jdk17-jammy
@@ -36,7 +39,7 @@ stages:
       git fetch origin
       git checkout ${DEPLOY_ENV} || git checkout -b ${DEPLOY_ENV} origin/${DEPLOY_ENV}
       git pull origin ${DEPLOY_ENV}
-      for f in $(grep -rl "eona-x/dse" values/); do
+      for f in $(grep -rl "eona-x/dse" values/ --exclude="dataspace-ui-values.yaml"); do
         yq e -i '(.. | select(type == "!!map" and has("repository") and has("tag")) | .tag) = strenv(DEPLOY_TAG)' "$f"
       done
       git add values/
@@ -50,6 +53,50 @@ stages:
           git pull --rebase origin ${DEPLOY_ENV} || exit 1
         fi
       done
+
+.deploy-argocd-mr:
+  stage: deploy
+  image: alpine:latest
+  needs: [docker-build-push]
+  before_script:
+    - apk add --no-cache git yq curl
+  script:
+    - |
+      MR_BRANCH="deploy_${DEPLOY_ENV}"
+      PROJECT_PATH="eona-x%2Fdata-space%2Fargocd-deployments"
+      git config --global user.name "${GITLAB_USER}"
+      git config --global user.email "${GITLAB_USER}@eona-x.eu"
+      git config --global --add credential.helper "store --file ./.git-credentials"
+      echo "https://${GITLAB_USER}:${GITLAB_TOKEN}@${GITLAB_HOST}" > ./.git-credentials
+      git config --global http.sslVerify false
+      git clone "https://${GITLAB_USER}:${GITLAB_TOKEN}@${GITLAB_HOST}/eona-x/data-space/argocd-deployments.git" argocd-repo
+      cd argocd-repo
+      git fetch origin
+      git checkout -B "${MR_BRANCH}" "origin/${DEPLOY_ENV}"
+      for f in $(grep -rl "eona-x/dse" values/ --exclude="dataspace-ui-values.yaml"); do
+        yq e -i '(.. | select(type == "!!map" and has("repository") and has("tag")) | .tag) = strenv(DEPLOY_TAG)' "$f"
+      done
+      git add values/
+      if git diff --cached --quiet; then
+        echo "No changes to commit."
+        exit 0
+      fi
+      git commit -m "deploy: ${DEPLOY_ENV} -> ${DEPLOY_TAG}"
+      git push --force "https://${GITLAB_USER}:${GITLAB_TOKEN}@${GITLAB_HOST}/eona-x/data-space/argocd-deployments.git" "HEAD:${MR_BRANCH}"
+      EXISTING_MR=$(curl -s --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+        "https://${GITLAB_HOST}/api/v4/projects/${PROJECT_PATH}/merge_requests?state=opened&source_branch=${MR_BRANCH}&target_branch=${DEPLOY_ENV}" \
+        | yq e '.[0].iid' -)
+      if [ "${EXISTING_MR}" = "null" ] || [ -z "${EXISTING_MR}" ]; then
+        curl -s --request POST --header "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+          "https://${GITLAB_HOST}/api/v4/projects/${PROJECT_PATH}/merge_requests" \
+          --data-urlencode "source_branch=${MR_BRANCH}" \
+          --data-urlencode "target_branch=${DEPLOY_ENV}" \
+          --data-urlencode "title=deploy: ${DEPLOY_ENV} -> ${DEPLOY_TAG}" \
+          --data-urlencode "remove_source_branch=true" \
+          | yq e '"Merge request created: " + .web_url' -
+      else
+        echo "Merge request already open: !${EXISTING_MR}"
+      fi
 
 compile:
   extends: .gradle
@@ -226,38 +273,46 @@ deploy-dev:
     - if: $CI_COMMIT_TAG =~ /^\d+\.\d+\.\d+$/
       when: manual
 
-deploy-uat:
-  extends: .deploy-argocd
+promote-uat:
+  extends: .deploy-argocd-mr
+  stage: promote-uat
   environment:
     name: uat
   variables:
     DEPLOY_ENV: uat
     DEPLOY_TAG: $CI_COMMIT_TAG
-  allow_failure: true
+  needs:
+    - job: docker-build-push
   rules:
     - if: $CI_COMMIT_TAG =~ /^\d+\.\d+\.\d+$/
       when: manual
 
-deploy-ppr:
-  extends: .deploy-argocd
+promote-ppr:
+  extends: .deploy-argocd-mr
+  stage: promote-ppr
   environment:
     name: ppr
   variables:
     DEPLOY_ENV: ppr
     DEPLOY_TAG: $CI_COMMIT_TAG
-  allow_failure: true
+  needs:
+    - job: docker-build-push
+    - job: promote-uat
   rules:
     - if: $CI_COMMIT_TAG =~ /^\d+\.\d+\.\d+$/
       when: manual
 
-deploy-prd:
-  extends: .deploy-argocd
+promote-prd:
+  extends: .deploy-argocd-mr
+  stage: promote-prd
   environment:
     name: prd
   variables:
     DEPLOY_ENV: prd
     DEPLOY_TAG: $CI_COMMIT_TAG
-  allow_failure: true
+  needs:
+    - job: docker-build-push
+    - job: promote-ppr
   rules:
     - if: $CI_COMMIT_TAG =~ /^\d+\.\d+\.\d+$/
       when: manual
