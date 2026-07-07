@@ -1,6 +1,0 @@
-apiVersion: v2
-name: issuerservice
-description: Deploy the Dataspace Issuer Service.
-
-type: application
-version: 0.1.0

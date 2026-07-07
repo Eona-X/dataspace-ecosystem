@@ -1,6 +1,0 @@
-apiVersion: v2
-name: telemetrystorage
-description: Deploy the Dataspace Telemetry Storage.
-
-type: application
-version: 0.1.0

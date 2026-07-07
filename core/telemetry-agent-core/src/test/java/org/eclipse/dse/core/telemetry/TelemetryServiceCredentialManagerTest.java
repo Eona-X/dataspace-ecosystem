@@ -9,6 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.awaitility.Awaitility.await;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -23,7 +25,7 @@ class TelemetryServiceCredentialManagerTest {
 
     @BeforeEach
     void setUp() {
-        manager = new TelemetryServiceCredentialManager(mock(), telemetryServiceClient, cache, ExecutorInstrumentation.noop());
+        manager = new TelemetryServiceCredentialManager(mock(), telemetryServiceClient, cache, ExecutorInstrumentation.noop(), true);
     }
 
     @AfterEach
@@ -52,5 +54,24 @@ class TelemetryServiceCredentialManagerTest {
         manager.start();
 
         await().untilAsserted(() -> verifyNoInteractions(cache));
+    }
+
+    @Test
+    void disabled_start_savesDummyTokenAndSkipsClient() {
+        var disabled = new TelemetryServiceCredentialManager(mock(), telemetryServiceClient, cache, ExecutorInstrumentation.noop(), false);
+
+        disabled.start();
+
+        verify(cache).save(argThat(t -> "".equals(t.getToken())));
+        verifyNoInteractions(telemetryServiceClient);
+    }
+
+    @Test
+    void disabled_stop_isNoOp() throws Exception {
+        var disabled = new TelemetryServiceCredentialManager(mock(), telemetryServiceClient, cache, ExecutorInstrumentation.noop(), false);
+
+        var result = disabled.stop().get();
+
+        assertTrue(result);
     }
 }

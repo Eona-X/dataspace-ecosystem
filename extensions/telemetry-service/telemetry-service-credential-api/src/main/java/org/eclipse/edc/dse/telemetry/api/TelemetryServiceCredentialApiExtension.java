@@ -6,12 +6,16 @@ import org.eclipse.edc.runtime.metamodel.annotation.Extension;
 import org.eclipse.edc.runtime.metamodel.annotation.Inject;
 import org.eclipse.edc.runtime.metamodel.annotation.Setting;
 import org.eclipse.edc.runtime.metamodel.annotation.Settings;
+import org.eclipse.edc.spi.monitor.Monitor;
+import org.eclipse.edc.spi.security.Vault;
 import org.eclipse.edc.spi.system.ServiceExtension;
 import org.eclipse.edc.spi.system.ServiceExtensionContext;
 import org.eclipse.edc.web.jersey.mapper.EdcApiExceptionMapper;
 import org.eclipse.edc.web.spi.WebService;
 import org.eclipse.edc.web.spi.configuration.PortMapping;
 import org.eclipse.edc.web.spi.configuration.PortMappingRegistry;
+
+import static java.time.Clock.systemUTC;
 
 @Extension(value = TelemetryServiceCredentialApiExtension.NAME)
 public class TelemetryServiceCredentialApiExtension implements ServiceExtension {
@@ -26,10 +30,21 @@ public class TelemetryServiceCredentialApiExtension implements ServiceExtension 
 
     @Inject
     private WebService webService;
+
     @Inject
     private TelemetryService telemetryService;
+
     @Inject
     private PortMappingRegistry portMappingRegistry;
+
+    @Inject
+    private Vault vault;
+
+    @Inject
+    private Monitor monitor;
+
+    @Setting(description = "Public key alias in Vault for JWKS", key = "dse.telemetry.credential.signer.publickey.alias", required = true)
+    private String publicKeyAlias;
 
     @Override
     public String name() {
@@ -43,6 +58,7 @@ public class TelemetryServiceCredentialApiExtension implements ServiceExtension 
 
         webService.registerResource(API_CONTEXT, new EdcApiExceptionMapper());
         webService.registerResource(API_CONTEXT, new TelemetryServiceCredentialApiController(telemetryService));
+        webService.registerResource(API_CONTEXT, new JwksApiController(vault, publicKeyAlias, monitor, systemUTC()));
     }
 
     @Settings

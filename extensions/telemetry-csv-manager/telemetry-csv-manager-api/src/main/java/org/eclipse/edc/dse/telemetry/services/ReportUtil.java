@@ -5,19 +5,26 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ReportUtil {
 
-    public static final String REPORT_HEADER_WITH_COUNTERPARTY_INFO = "contract_id,data_transfer_response_status,participant_id,counterparty_id," +
+    public static final String EXTENDED_REPORT_HEADER = "contract_id,data_transfer_response_status,participant_name,counterparty_name," +
             "participant_total_transfer_size_in_kB,counterparty_total_transfer_size_in_kB,participant_total_number_of_events," +
             "counterparty_total_number_of_events";
 
-    public static final String REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO = "contract_id,data_transfer_response_status," +
+    public static final String REPORT_HEADER = "contract_id,counterparty_name,data_transfer_response_status," +
             "total_transfer_size_in_kB,total_number_of_events";
 
-    public static final String NONE_WITH_COUNTERPARTY_INFO = "N/A,N/A,N/A,N/A,N/A,N/A,N/A,N/A";
-    public static final String NONE_WITHOUT_COUNTERPARTY_INFO = "N/A,N/A,N/A,N/A";
+    public static final String EXTENDED_REPORT_EMPTY_ROW = Arrays.stream(EXTENDED_REPORT_HEADER.split(","))
+            .map(col -> "N/A")
+            .collect(Collectors.joining(","));
+
+    public static final String REPORT_EMPTY_ROW = Arrays.stream(REPORT_HEADER.split(","))
+            .map(col -> "N/A")
+            .collect(Collectors.joining(","));
 
     public static String generateReportFileName(String participantName, LocalDateTime targetDateTime, boolean isCounterpartyReport) {
         int year = targetDateTime.getYear();
@@ -46,9 +53,9 @@ public class ReportUtil {
     public static String generateCsvReportContent(List<String> csvLines, boolean includeCounterpartyInfo) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PrintWriter writer = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8));
-        writer.println(includeCounterpartyInfo ? REPORT_HEADER_WITH_COUNTERPARTY_INFO : REPORT_HEADER_WITHOUT_COUNTERPARTY_INFO);
+        writer.println(includeCounterpartyInfo ? EXTENDED_REPORT_HEADER : REPORT_HEADER);
         if (csvLines.isEmpty()) {
-            writer.println(includeCounterpartyInfo ? NONE_WITH_COUNTERPARTY_INFO : NONE_WITHOUT_COUNTERPARTY_INFO);
+            writer.println(includeCounterpartyInfo ? EXTENDED_REPORT_EMPTY_ROW : REPORT_EMPTY_ROW);
         } else {
             csvLines.forEach(writer::println);
         }

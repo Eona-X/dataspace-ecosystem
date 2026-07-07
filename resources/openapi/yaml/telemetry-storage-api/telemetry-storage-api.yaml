@@ -3,6 +3,9 @@ info:
   description: This API is used to process telemetry events
   title: Telemetry Storage API
   version: "1"
+security:
+- bearerAuth: []
+- apiKeyAuth: []
 paths:
   /telemetry-events:
     post:
@@ -47,3 +50,12 @@ components:
         timestamp:
           type: string
           format: date-time
+  securitySchemes:
+    apiKeyAuth:
+      in: header
+      name: x-api-key
+      type: apiKey
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http

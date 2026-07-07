@@ -7,6 +7,8 @@ import org.eclipse.edc.spi.EdcException;
 import org.eclipse.edc.spi.event.EventEnvelope;
 import org.eclipse.edc.spi.result.StoreResult;
 import org.eclipse.edc.spi.types.domain.DataAddress;
+import org.eclipse.edc.transaction.spi.NoopTransactionContext;
+import org.eclipse.edc.transaction.spi.TransactionContext;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -27,7 +29,8 @@ class AssetCustomPropertySubscriberTest {
     private static final String TEST_PROP = UUID.randomUUID().toString();
 
     private final AssetIndex assetIndex = mock();
-    private final AssetCustomPropertySubscriber subscriber = new AssetCustomPropertySubscriber(assetIndex);
+    private final TransactionContext transactionContext = new NoopTransactionContext();
+    private final AssetCustomPropertySubscriber subscriber = new AssetCustomPropertySubscriber(assetIndex, transactionContext);
 
     @Test
     void success() {

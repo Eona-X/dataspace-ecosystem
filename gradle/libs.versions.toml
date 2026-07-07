@@ -2,10 +2,10 @@
 format.version = "1.1"
 
 [versions]
-edc = "0.13.2"
+edc = "0.14.0"
+edc-build = "1.1.0"
 
 assertj = "3.27.3"
-azureMessagingEventHub = "5.19.2"
 awaitility = "4.2.0"
 nimbus = "9.45"
 jackarta-json = "2.0.1"
@@ -17,10 +17,13 @@ httpMockServer = "5.15.0"
 jersey = "3.1.10"
 jupiter = "5.11.4"
 kafka = "3.7.0"
+testcontainers = "1.21.4"
 postgres = "42.7.3"
 swagger = "2.2.27"
 micrometer = "1.14.2"
 jjwt = "0.13.0"
+netty = "4.2.4.Final"
+mockito = "5.22.0"
 
 [libraries]
 edc-spi-core = { module = "org.eclipse.edc:core-spi", version.ref = "edc" }
@@ -28,6 +31,7 @@ edc-spi-web = { module = "org.eclipse.edc:web-spi", version.ref = "edc" }
 edc-spi-http = { module = "org.eclipse.edc:http-spi", version.ref = "edc" }
 edc-spi-policy-engine = { module = "org.eclipse.edc:policy-engine-spi", version.ref = "edc" }
 edc-spi-policy-engine-lib = { module = "org.eclipse.edc:policy-engine-lib", version.ref = "edc" }
+edc-spi-control-plane-transform = { module = "org.eclipse.edc:control-plane-transform", version.ref = "edc" }
 edc-spi-dpf = { module = "org.eclipse.edc:data-plane-spi", version.ref = "edc" }
 edc-spi-participant = { module = "org.eclipse.edc:participant-spi", version.ref = "edc" }
 edc-spi-dpf-http = { module = "org.eclipse.edc:data-plane-http-spi", version.ref = "edc" }
@@ -41,9 +45,12 @@ edc-spi-identity-did = { module = "org.eclipse.edc:identity-did-spi", version.re
 edc-spi-identitytrust = { module = "org.eclipse.edc:identity-trust-spi", version.ref = "edc" }
 edc-spi-jsonld = { module = "org.eclipse.edc:json-ld-spi", version.ref = "edc" }
 edc-spi-jwt = { module = "org.eclipse.edc:jwt-spi", version.ref = "edc" }
+edc-spi-jwt-signer = { module = "org.eclipse.edc:jwt-signer-spi", version.ref = "edc" }
 edc-spi-vc = { module = "org.eclipse.edc:verifiable-credential-spi", version.ref = "edc" }
 edc-spi-edrstore = { module = "org.eclipse.edc:edr-store-spi", version.ref = "edc" }
 edc-spi-dsp-http = { module = "org.eclipse.edc:dsp-http-spi", version.ref = "edc" }
+edc-spi-token = { module = "org.eclipse.edc:token-spi", version.ref = "edc" }
+edc-spi-policy-context = { module = "org.eclipse.edc:request-policy-context-spi", version.ref = "edc" }
 
 edc-core-boot = { module = "org.eclipse.edc:boot", version.ref = "edc" }
 edc-core-runtime = { module = "org.eclipse.edc:runtime-core", version.ref = "edc" }
@@ -72,6 +79,8 @@ edc-lib-token = { module = "org.eclipse.edc:token-lib", version.ref = "edc" }
 edc-lib-jsonld = { module = "org.eclipse.edc:json-ld-lib", version.ref = "edc" }
 edc-lib-sql = { module = "org.eclipse.edc:sql-lib", version.ref = "edc" }
 edc-lib-transform = { module = "org.eclipse.edc:transform-lib", version.ref = "edc" }
+edc-spi-transform = { module = "org.eclipse.edc:transform-spi", version.ref = "edc" }
+edc-lib-validator = { module = "org.eclipse.edc:validator-lib", version.ref = "edc" }
 edc-lib-crypto-common = { module = "org.eclipse.edc:crypto-common-lib", version.ref = "edc" }
 edc-core-policy-monitor = { module = "org.eclipse.edc:policy-monitor-core", version.ref = "edc" }
 edc-junit = { module = "org.eclipse.edc:junit", version.ref = "edc" }
@@ -99,15 +108,20 @@ edc-ext-sql-pool-apache-commons = { module = "org.eclipse.edc:sql-pool-apache-co
 edc-spi-boot = { module = "org.eclipse.edc:web-spi", version.ref = "edc" }
 edc-ext-sql-edrindex = { module = "org.eclipse.edc:edr-index-sql", version.ref = "edc" }
 
-edc-ext-azure-vault = { module = "org.eclipse.edc.azure:vault-azure", version.ref = "edc" }
 edc-identitytrust-core = { module = "org.eclipse.edc:identity-trust-core", version.ref = "edc" }
+edc-identitytrust-issuersconfiguration = { module = "org.eclipse.edc:identity-trust-issuers-configuration", version.ref = "edc" }
 edc-identity-did-core = { module = "org.eclipse.edc:identity-did-core", version.ref = "edc" }
 edc-identity-did-web = { module = "org.eclipse.edc:identity-did-web", version.ref = "edc" }
+edc-oauth2-oauth2client = {module = "org.eclipse.edc:oauth2-client", version.ref = "edc" }
+edc-sql-jti-store = { module = "org.eclipse.edc:jti-validation-store-sql", version.ref = "edc" }
+edc-dsp = { module = "org.eclipse.edc:dsp", version.ref = "edc" }
+edc-dsp08-apiconfiguration = { module = "org.eclipse.edc:dsp-http-api-configuration-08", version.ref = "edc" }
 
 # Control Plane
 edc-controlplane-api-secrets = { module = "org.eclipse.edc:secrets-api", version.ref = "edc" }
 edc-controlplane-bom = { module = "org.eclipse.edc:controlplane-dcp-bom", version.ref = "edc" }
 edc-controlplane-sql-bom = { module = "org.eclipse.edc:controlplane-feature-sql-bom", version.ref = "edc" }
+edc-controlplane-core = { module = "org.eclipse.edc:control-plane-core", version.ref = "edc" }
 
 # Data Plane
 edc-dataplane-bom = { module = "org.eclipse.edc:dataplane-base-bom", version.ref = "edc" }
@@ -136,7 +150,9 @@ edc-issuerservice-api-admin-config = { module = "org.eclipse.edc:issuer-admin-ap
 # Federated Catalotg dependencies
 edc-federatedcatalog-spi-core = { module = "org.eclipse.edc:federated-catalog-spi", version.ref = "edc" }
 edc-federatedcatalog-bom = { module = "org.eclipse.edc:federatedcatalog-dcp-bom", version.ref = "edc" }
-
+edc-protocol-dsp-catalog = { module = "org.eclipse.edc:dsp-catalog-transform-lib", version.ref = "edc" }
+edc-lib-jerseyproviders = { module = "org.eclipse.edc:jersey-providers-lib", version.ref = "edc" }
+edc-federated-catalog-core = { module = "org.eclipse.edc:federated-catalog-core-2025", version.ref = "edc" }
 # Other dependencies
 micrometer = { module = "io.micrometer:micrometer-core", version.ref = "micrometer" }
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
@@ -154,14 +170,20 @@ mockserver-client = { module = "org.mock-server:mockserver-client-java", version
 mockserver-netty = { module = "org.mock-server:mockserver-netty", version.ref = "httpMockServer" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "jupiter" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "jupiter" }
+junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params", version.ref = "jupiter" }
 kafka-clients = { module = "org.apache.kafka:kafka-clients", version.ref = "kafka" }
+mockito-junit-jupiter = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockito" }
+testcontainers-kafka = { module = "org.testcontainers:kafka", version.ref = "testcontainers" }
+testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
 postgres = { module = "org.postgresql:postgresql", version.ref = "postgres" }
-azure-messaging-eventhub = { group = "com.azure", name = "azure-messaging-eventhubs", version.ref = "azureMessagingEventHub" }
 jersey-multipart = { module = "org.glassfish.jersey.media:jersey-media-multipart", version.ref = "jersey" }
 jjwt-api = { module = "io.jsonwebtoken:jjwt-api", version.ref = "jjwt" }
 jjwt-impl = { module = "io.jsonwebtoken:jjwt-impl", version.ref = "jjwt" }
 jjwt-jackson = { module = "io.jsonwebtoken:jjwt-jackson", version.ref = "jjwt" }
 jackson-annotations = { module = "com.fasterxml.jackson.core:jackson-annotations", version.ref = "jackson" }
+
+# Security fix for PSMP-984
+netty-codec-http2 = { module = "io.netty:netty-codec-http2", version.ref = "netty" }
 
 [bundles]
 connector = ["edc-core-boot", "edc-core-connector", "edc-observability-api", "edc-jdklogger",
@@ -172,3 +194,4 @@ identity = ["edc-identity-did-core", "edc-identity-did-web"]
 [plugins]
 shadow = { id = "com.github.johnrengelman.shadow", version = "8.1.1" }
 swagger = { id = "io.swagger.core.v3.swagger-gradle-plugin", version.ref = "swagger" }
+edc-build = { id = "org.eclipse.edc.edc-build", version.ref = "edc-build" }

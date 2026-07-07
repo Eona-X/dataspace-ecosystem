@@ -25,6 +25,7 @@ public class DataConsumptionRecordTest {
                 .contractId("contract-id")
                 .responseStatusCode(200)
                 .participantId("did:web:" + UUID.randomUUID())
+                .timestamp(System.currentTimeMillis())
                 .build();
 
         var serialized = MAPPER.writeValueAsString(record);
@@ -55,38 +56,41 @@ public class DataConsumptionRecordTest {
     }
 
     @Test
-    public void verify_NullResponseSize_ShouldFail() {
+    public void verifyNullResponseSizeShouldFail() {
         var traceContext = Map.of("traceparent", "123");
         assertThatNullPointerException()
                 .isThrownBy(() -> DataConsumptionRecord.Builder.newInstance()
                         .responseSize(null)
                         .traceContext(traceContext)
                         .contractId("contract-id")
+                        .timestamp(System.currentTimeMillis())
                         .build())
                 .withMessageContaining("responseSize");
     }
 
     @Test
-    public void verify_nullResponseStatusCode_ShouldFail() {
+    public void verifyNullResponseStatusCodeShouldFail() {
         var traceContext = Map.of("traceparent", "123");
         assertThatNullPointerException()
                 .isThrownBy(() -> DataConsumptionRecord.Builder.newInstance()
                         .responseSize(null)
                         .traceContext(traceContext)
                         .contractId("contract-id")
+                        .timestamp(System.currentTimeMillis())
                         .responseSize(100L)
                         .build())
                 .withMessageContaining("responseStatusCode");
     }
 
     @Test
-    public void verify_nullParticipantId_ShouldFail() {
+    public void verifyNullParticipantIdShouldFail() {
         var traceContext = Map.of("traceparent", "123");
         assertThatNullPointerException()
                 .isThrownBy(() -> DataConsumptionRecord.Builder.newInstance()
                         .responseSize(null)
                         .traceContext(traceContext)
                         .contractId("contract-id")
+                        .timestamp(System.currentTimeMillis())
                         .responseSize(100L)
                         .responseStatusCode(200)
                         .build())
@@ -94,15 +98,32 @@ public class DataConsumptionRecordTest {
     }
 
     @Test
-    public void verify_NullTraceContext_ShouldNotFail() {
+    public void verifyNullTraceContextShouldNotFail() {
         assertThatNoException()
                 .isThrownBy(() -> DataConsumptionRecord.Builder.newInstance()
                         .responseSize(10L)
                         .traceContext(null)
                         .contractId("contract-id")
+                        .timestamp(System.currentTimeMillis())
                         .responseStatusCode(200)
                         .participantId("did:web:" + UUID.randomUUID())
+                .timestamp(System.currentTimeMillis())
                         .build());
 
+    }
+
+    @Test
+    public void verifyNullTimestampShouldFail() {
+        var traceContext = Map.of("traceparent", "123");
+        assertThatNullPointerException()
+                .isThrownBy(() -> DataConsumptionRecord.Builder.newInstance()
+                        .responseSize(100L)
+                        .traceContext(traceContext)
+                        .contractId("contract-id")
+                        .responseStatusCode(200)
+                        .participantId("did:web:" + UUID.randomUUID())
+                        .timestamp(null)
+                        .build())
+                .withMessageContaining("timestamp");
     }
 }

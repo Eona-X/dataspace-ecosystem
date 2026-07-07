@@ -1,4 +1,12 @@
 openapi: 3.0.1
+info:
+  description: Data proxy enabling a data consumer to actively query data from the
+    provider data source via the Data Plane
+  title: Data Plane Public API v2
+  version: "2"
+security:
+- bearerAuth: []
+- apiKeyAuth: []
 tags:
 - description: "The public API of the Data Plane is a data proxy enabling a data consumer\
     \ to actively querydata from the provider data source (e.g. backend Rest API,\
@@ -85,3 +93,13 @@ paths:
           description: Failed to transfer data
       tags:
       - Data Plane public API
+components:
+  securitySchemes:
+    apiKeyAuth:
+      in: header
+      name: x-api-key
+      type: apiKey
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http

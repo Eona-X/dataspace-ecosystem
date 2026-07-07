@@ -1,6 +1,6 @@
 package org.eclipse.edc.dse.telemetry.services.report;
 
-import org.eclipse.edc.dse.telemetry.services.storage.AzureStorageService;
+import org.eclipse.edc.dse.telemetry.services.storage.ReportStorageService;
 import org.eclipse.edc.spi.monitor.Monitor;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -19,12 +19,12 @@ import static org.mockito.Mockito.mock;
 class ReportGeneratorSchedulerTest {
 
     private static Monitor monitor;
-    private static AzureStorageService azureStorageService;
+    private static ReportStorageService reportStorageService;
 
     @BeforeAll
     void setup() {
         monitor = mock(Monitor.class);
-        azureStorageService = mock(AzureStorageService.class);
+        reportStorageService = mock(ReportStorageService.class);
     }
 
     @Test
@@ -36,7 +36,7 @@ class ReportGeneratorSchedulerTest {
                 ZoneId.systemDefault()
         );
 
-        ReportGeneratorScheduler reportGeneratorScheduler = new ReportGeneratorScheduler(monitor, azureStorageService, fixedClock);
+        ReportGeneratorScheduler reportGeneratorScheduler = new ReportGeneratorScheduler(monitor, reportStorageService, fixedClock);
 
         long delaySeconds = reportGeneratorScheduler.computeDelayUntilNextMonthlyRun();
         // 16 hours to next run
@@ -52,7 +52,7 @@ class ReportGeneratorSchedulerTest {
                 ZoneId.systemDefault()
         );
 
-        ReportGeneratorScheduler reportGeneratorScheduler = new ReportGeneratorScheduler(monitor, azureStorageService, fixedClock);
+        ReportGeneratorScheduler reportGeneratorScheduler = new ReportGeneratorScheduler(monitor, reportStorageService, fixedClock);
 
         long delaySeconds = reportGeneratorScheduler.computeDelayUntilNextMonthlyRun();
         // next month 2nd Nov 02:00 => ~30 days

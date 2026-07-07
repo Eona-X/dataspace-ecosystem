@@ -1,6 +1,0 @@
-apiVersion: v2
-name: federatedcatalog
-description: Deploy an EDC Federated Catalog
-
-type: application
-version: 0.1.0

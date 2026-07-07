@@ -1,3 +1,6 @@
+import com.bmuschko.gradle.docker.tasks.image.DockerPushImage
+import org.gradle.kotlin.dsl.create
+
 /*
  *  Copyright (c) 2024 Eclipse Dataspace Connector Project
  *
@@ -17,7 +20,7 @@ plugins {
 
 import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
 
-val dockerImageName = project.findProperty("docker.image.name")?.toString() ?: "kafka-proxy-entra-auth"
+val dockerImageName = project.findProperty("docker.image.name")?.toString() ?: "kafka-proxy-oidc-auth"
 val dockerImageTag = project.findProperty("docker.image.tag")?.toString() ?: "latest"
 val dockerRegistry = project.findProperty("docker.registry")?.toString() ?: ""
 val loadToKind = project.hasProperty("loadToKind")
@@ -146,16 +149,16 @@ loadToKindTask.configure {
 // Docker build task (for Docker users)
 val dockerTask = tasks.register("dockerize", DockerBuildImage::class) {
     group = "docker"
-    description = "Build Docker image with Entra ID authentication plugins"
+    description = "Build Docker image with OIDC authentication plugins"
     
     dependsOn(buildGoPlugins)
     
     images.add(imageName)
     
     if (dockerRegistry.isNotEmpty()) {
-        images.add("$dockerRegistry/$imageName")
+        images.add("$dockerRegistry/$dockerImageName:$dockerImageTag")
     }
-    
+
     // specify platform with the -Dplatform flag:
     if (System.getProperty("platform") != null) {
         platform.set(System.getProperty("platform"))
@@ -172,6 +175,15 @@ val dockerTask = tasks.register("dockerize", DockerBuildImage::class) {
         println("Docker image built successfully")
     }
 }
+
+
+val dockerPushTask: DockerPushImage = tasks.create("dockerPush", DockerPushImage::class) {
+    group = "distribution"
+    description = "Push Docker image to registry"
+    images.add("${dockerRegistry}/${dockerImageName}:${dockerImageTag}")
+}
+// Ensure push happens after build
+dockerPushTask.dependsOn(dockerTask)
 
 // Aggregate task for complete build
 tasks.register("buildAll") {

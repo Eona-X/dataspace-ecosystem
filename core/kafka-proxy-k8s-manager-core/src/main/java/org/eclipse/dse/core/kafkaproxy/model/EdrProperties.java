@@ -30,7 +30,7 @@ public class EdrProperties {
     private final String saslMechanism;
     private final String tlsClientCert;
     private final String tlsClientKey;
-    private final String tlsCaSecret;
+    private final String tlsCaCrt;
     
     // OAuth2 client credentials for OAUTHBEARER authentication
     private final String oauth2ClientId;
@@ -47,7 +47,7 @@ public class EdrProperties {
             @JsonProperty("sasl_mechanism") String saslMechanism,
             @JsonProperty("tls_client_cert") String tlsClientCert,
             @JsonProperty("tls_client_key") String tlsClientKey,
-            @JsonProperty("tls_ca_secret") String tlsCaSecret,
+            @JsonProperty("tls_ca_crt") String tlsCaCrt,
             @JsonProperty("oauth2_client_id") String oauth2ClientId,
             @JsonProperty("oauth2_client_secret") String oauth2ClientSecret,
             @JsonProperty("oauth2_tenant_id") String oauth2TenantId,
@@ -59,7 +59,7 @@ public class EdrProperties {
         this.saslMechanism = saslMechanism;
         this.tlsClientCert = tlsClientCert;
         this.tlsClientKey = tlsClientKey;
-        this.tlsCaSecret = tlsCaSecret;
+        this.tlsCaCrt = tlsCaCrt;
         this.oauth2ClientId = oauth2ClientId;
         this.oauth2ClientSecret = oauth2ClientSecret;
         this.oauth2TenantId = oauth2TenantId;
@@ -96,8 +96,8 @@ public class EdrProperties {
         return tlsClientKey;
     }
     
-    public String getTlsCaSecret() {
-        return tlsCaSecret != null ? tlsCaSecret : "proxy-provider-tls-ca"; // default ConfigMap name
+    public String getTlsCaCrt() {
+        return tlsCaCrt;
     }
     
     public String getOauth2ClientId() {
@@ -124,8 +124,8 @@ public class EdrProperties {
      * Returns true if both client certificate and key are provided for mutual TLS
      */
     public boolean hasMutualTls() {
-        return tlsClientCert != null && !tlsClientCert.isEmpty() && 
-               tlsClientKey != null && !tlsClientKey.isEmpty();
+        return tlsClientCert != null && !tlsClientCert.isEmpty() &&
+                tlsClientKey != null && !tlsClientKey.isEmpty();
     }
     
     /**
@@ -133,8 +133,8 @@ public class EdrProperties {
      */
     public boolean hasOauth2Credentials() {
         return oauth2ClientId != null && !oauth2ClientId.isEmpty() &&
-               oauth2ClientSecret != null && !oauth2ClientSecret.isEmpty() &&
-               oauth2TenantId != null && !oauth2TenantId.isEmpty();
+                oauth2ClientSecret != null && !oauth2ClientSecret.isEmpty() &&
+                oauth2TenantId != null && !oauth2TenantId.isEmpty();
     }
     
     @Override
@@ -149,7 +149,7 @@ public class EdrProperties {
                Objects.equals(saslMechanism, that.saslMechanism) &&
                Objects.equals(tlsClientCert, that.tlsClientCert) &&
                Objects.equals(tlsClientKey, that.tlsClientKey) &&
-               Objects.equals(tlsCaSecret, that.tlsCaSecret) &&
+               Objects.equals(tlsCaCrt, that.tlsCaCrt) &&
                Objects.equals(oauth2ClientId, that.oauth2ClientId) &&
                Objects.equals(oauth2ClientSecret, that.oauth2ClientSecret) &&
                Objects.equals(oauth2TenantId, that.oauth2TenantId) &&
@@ -160,22 +160,22 @@ public class EdrProperties {
     public int hashCode() {
         return Objects.hash(bootstrapServers, username, password, securityProtocol, 
                            saslMechanism,
-                           tlsClientCert, tlsClientKey, tlsCaSecret,
+                           tlsClientCert, tlsClientKey, tlsCaCrt,
                            oauth2ClientId, oauth2ClientSecret, oauth2TenantId, oauth2Scope);
     }
     
     @Override
     public String toString() {
         return "EdrProperties{" +
-               "bootstrapServers='" + bootstrapServers + '\'' +
-               ", username='" + username + '\'' +
-               ", securityProtocol='" + securityProtocol + '\'' +
-               ", saslMechanism='" + saslMechanism + '\'' +
-               ", tlsEnabled=" + isTlsEnabled() +
-               ", hasMutualTls=" + hasMutualTls() +
-               ", tlsCaSecret='" + tlsCaSecret + '\'' +
-               ", hasOauth2Credentials=" + hasOauth2Credentials() +
-               ", oauth2TenantId='" + oauth2TenantId + '\'' +
-               '}';
+                "bootstrapServers='" + bootstrapServers + '\'' +
+                ", username='" + username + '\'' +
+                ", securityProtocol='" + securityProtocol + '\'' +
+                ", saslMechanism='" + saslMechanism + '\'' +
+                ", tlsEnabled=" + isTlsEnabled() +
+                ", hasMutualTls=" + hasMutualTls() +
+                ", hasTlsCaCrt=" + (tlsCaCrt != null && !tlsCaCrt.isEmpty()) +
+                ", hasOauth2Credentials=" + hasOauth2Credentials() +
+                ", oauth2TenantId='" + oauth2TenantId + '\'' +
+                '}';
     }
 }

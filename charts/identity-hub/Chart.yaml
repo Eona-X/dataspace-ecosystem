@@ -1,6 +1,0 @@
-apiVersion: v2
-name: identityhub
-description: Deploy an EDC Credential Service (i.e. Identity Hub).
-
-type: application
-version: 0.1.0

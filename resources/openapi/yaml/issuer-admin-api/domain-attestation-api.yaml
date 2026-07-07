@@ -3,22 +3,25 @@ info:
   description: This API is used to manipulate domain attestations
   title: Issuer Service Domain Attestation API
   version: "1"
+security:
+- bearerAuth: []
+- apiKeyAuth: []
 paths:
   /v1alpha/participants/{participantContextId}/attestation-domain:
     post:
       description: Adds a new domain attestation.
       operationId: createDomainAttestation
       parameters:
-        - in: path
-          name: participantContextId
-          required: true
-          schema:
-            type: string
+      - in: path
+        name: participantContextId
+        required: true
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/DomainAttestationDto"
+              $ref: "#/components/schemas/DomainAttestation"
       responses:
         "204":
           description: The domain attestation was added successfully.
@@ -37,24 +40,24 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ApiErrorDetail"
-          description: "Can't add the domain attestation, because a object with\
-            \ the same ID already exists"
+          description: "Can't add the domain attestation, because a object with the\
+            \ same ID already exists"
       tags:
-        - Domain Attestation Admin API
+      - Domain Attestation Admin API
     put:
       description: Updates domain attestation.
       operationId: updateDomainAttestation
       parameters:
-        - in: path
-          name: participantContextId
-          required: true
-          schema:
-            type: string
+      - in: path
+        name: participantContextId
+        required: true
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/DomainAttestationDto"
+              $ref: "#/components/schemas/DomainAttestation"
       responses:
         "204":
           description: The domain attestation was updated successfully.
@@ -82,20 +85,19 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/ApiErrorDetail"
-          description: Can't update the domain attestation because it was not
-            found.
+          description: Can't update the domain attestation because it was not found.
       tags:
-        - Domain Attestation Admin API
+      - Domain Attestation Admin API
   /v1alpha/participants/{participantContextId}/attestation-domain/request:
     post:
       description: Gets all domain attestations for a certain query.
       operationId: queryDomainAttestations
       parameters:
-        - in: path
-          name: participantContextId
-          required: true
-          schema:
-            type: string
+      - in: path
+        name: participantContextId
+        required: true
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -119,22 +121,22 @@ paths:
                   $ref: "#/components/schemas/ApiErrorDetail"
           description: "Request body was malformed, or the request could not be processed"
       tags:
-        - Domain Attestation Admin API
+      - Domain Attestation Admin API
   /v1alpha/participants/{participantContextId}/attestation-domain/{id}:
     delete:
       description: Delete domain attestation.
       operationId: deleteDomainAttestation
       parameters:
-        - in: path
-          name: participantContextId
-          required: true
-          schema:
-            type: string
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
+      - in: path
+        name: participantContextId
+        required: true
+        schema:
+          type: string
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
       responses:
         "204":
           description: The domain attestation was deleted successfully.
@@ -155,7 +157,7 @@ paths:
                   $ref: "#/components/schemas/ApiErrorDetail"
           description: Can't delete domain attestation because it was not found.
       tags:
-        - Domain Attestation Admin API
+      - Domain Attestation Admin API
 components:
   schemas:
     ApiErrorDetail:
@@ -181,20 +183,20 @@ components:
     DomainAttestation:
       type: object
       properties:
+        domain:
+          type: string
         holderId:
           type: string
         id:
-          type: string
-        domain:
           type: string
     DomainAttestationDto:
       type: object
       properties:
+        domain:
+          type: string
         holderId:
           type: string
         id:
-          type: string
-        domain:
           type: string
     QuerySpec:
       type: object
@@ -214,5 +216,14 @@ components:
         sortOrder:
           type: string
           enum:
-            - ASC
-            - DESC
+          - ASC
+          - DESC
+  securitySchemes:
+    apiKeyAuth:
+      in: header
+      name: x-api-key
+      type: apiKey
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http

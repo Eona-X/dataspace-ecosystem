@@ -34,7 +34,7 @@ public class TelemetryServiceCredentialApiController implements TelemetryService
             throw new InvalidRequestException("Missing '%s' header in request".formatted(AUTHORIZATION));
         }
 
-        return telemetryService.createSasToken(TokenRepresentation.Builder.newInstance().token(token).build())
+        return telemetryService.createAccessToken(TokenRepresentation.Builder.newInstance().token(token).build())
                 .orElseThrow(exceptionMapper(TokenRepresentation.class));
     }
 

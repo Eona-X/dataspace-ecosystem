@@ -5,6 +5,7 @@ plugins {
 
 // Configure test task to pass system properties
 tasks.test {
+    useJUnitPlatform()
     // Pass all system properties that start with "cluster." or "kubectl." to the test JVM
     System.getProperties().forEach { key, value ->
         if (key.toString().startsWith("cluster.") || key.toString().startsWith("kubectl.")) {
@@ -19,7 +20,6 @@ dependencies {
     testImplementation(libs.edc.spi.dpf)
     testImplementation(libs.jakarta.rsApi)
     testImplementation(libs.edc.lib.keys)
-    testImplementation(libs.azure.messaging.eventhub)
     testImplementation(project(":spi:telemetry-service-spi"))
     testImplementation(project(":extensions:common:policies"))
     testImplementation(project(":spi:common-spi"))
@@ -49,8 +49,14 @@ dependencies {
     testFixturesImplementation(libs.edc.identityhub.spi.core)
     testFixturesImplementation(libs.edc.spi.identity.did)
     testFixturesImplementation(libs.awaitility)
+    testImplementation(libs.edc.core.junit)
+    testImplementation(libs.mockito.junit.jupiter)
+    testImplementation(libs.junit.jupiter.api)
+    testImplementation(libs.junit.jupiter.params)
+    testImplementation(libs.testcontainers.junit.jupiter)
+    testRuntimeOnly(libs.junit.jupiter.engine)
+    testImplementation(libs.assertj)
     testImplementation(libs.kafka.clients)
     testFixturesImplementation(libs.kafka.clients)
 
 }
-

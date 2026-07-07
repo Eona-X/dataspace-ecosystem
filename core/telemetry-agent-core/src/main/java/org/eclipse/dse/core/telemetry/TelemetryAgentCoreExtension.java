@@ -3,13 +3,17 @@ package org.eclipse.dse.core.telemetry;
 import org.eclipse.dse.edc.spi.telemetryagent.TelemetryRecordPublisherFactory;
 import org.eclipse.dse.edc.spi.telemetryagent.TelemetryRecordStore;
 import org.eclipse.dse.edc.spi.telemetryagent.TelemetryServiceClient;
+import org.eclipse.dse.spi.telemetry.RequestTelemetryPolicyContext;
+import org.eclipse.dse.spi.telemetry.TelemetryPolicy;
 import org.eclipse.edc.http.spi.EdcHttpClient;
 import org.eclipse.edc.iam.did.spi.resolution.DidResolverRegistry;
 import org.eclipse.edc.jwt.signer.spi.JwsSignerProvider;
+import org.eclipse.edc.policy.engine.spi.PolicyEngine;
 import org.eclipse.edc.runtime.metamodel.annotation.Inject;
 import org.eclipse.edc.runtime.metamodel.annotation.Provider;
 import org.eclipse.edc.runtime.metamodel.annotation.Provides;
 import org.eclipse.edc.runtime.metamodel.annotation.Setting;
+import org.eclipse.edc.spi.iam.IdentityService;
 import org.eclipse.edc.spi.monitor.Monitor;
 import org.eclipse.edc.spi.retry.ExponentialWaitStrategy;
 import org.eclipse.edc.spi.system.ExecutorInstrumentation;
@@ -18,18 +22,22 @@ import org.eclipse.edc.spi.system.ServiceExtensionContext;
 import org.eclipse.edc.spi.telemetry.Telemetry;
 import org.eclipse.edc.spi.types.TypeManager;
 import org.eclipse.edc.statemachine.retry.EntityRetryProcessConfiguration;
-import org.eclipse.edc.token.JwtGenerationService;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Clock;
 
-import static org.eclipse.edc.statemachine.AbstractStateEntityManager.DEFAULT_BATCH_SIZE;
-import static org.eclipse.edc.statemachine.AbstractStateEntityManager.DEFAULT_ITERATION_WAIT;
-import static org.eclipse.edc.statemachine.AbstractStateEntityManager.DEFAULT_SEND_RETRY_BASE_DELAY;
-import static org.eclipse.edc.statemachine.AbstractStateEntityManager.DEFAULT_SEND_RETRY_LIMIT;
+import static org.eclipse.dse.spi.telemetry.RequestTelemetryPolicyContext.TELEMETRY_REQUEST_SCOPE;
+import static org.eclipse.edc.statemachine.StateMachineConfiguration.DEFAULT_BATCH_SIZE;
+import static org.eclipse.edc.statemachine.StateMachineConfiguration.DEFAULT_ITERATION_WAIT;
+import static org.eclipse.edc.statemachine.StateMachineConfiguration.DEFAULT_SEND_RETRY_BASE_DELAY;
+import static org.eclipse.edc.statemachine.StateMachineConfiguration.DEFAULT_SEND_RETRY_LIMIT;
+
 
 @Provides({TelemetryAgent.class, TelemetryServiceCredentialManager.class})
 public class TelemetryAgentCoreExtension implements ServiceExtension {
+
+    @Setting(description = "Whether the telemetry service credentials manager is enabled. When false, the credential manager does not start and a dummy token is used instead.", type = "boolean", defaultValue = "true")
+    private static final String TELEMETRY_AGENT_CREDENTIALS_MANAGER_ENABLED = "dse.telemetry-agent.credentials-manager.enabled";
 
     @Setting(description = "The iteration wait time in milliseconds in the telemetry agent state machine. Default value " + DEFAULT_ITERATION_WAIT, type = "long")
     private static final String TELEMETRY_AGENT_MACHINE_ITERATION_WAIT_MILLIS = "dse.telemetry-agent.state-machine.iteration-wait-millis";
@@ -79,6 +87,15 @@ public class TelemetryAgentCoreExtension implements ServiceExtension {
     @Inject
     private JwsSignerProvider jwsSignerProvider;
 
+    @Inject
+    private IdentityService identityService;
+
+    @Inject
+    private PolicyEngine policyEngine;
+
+    @Inject
+    private TelemetryPolicy telemetryPolicy;
+
     private TelemetryAgent telemetryAgent;
 
     private TelemetryServiceCredentialManager credentialsManager;
@@ -107,6 +124,9 @@ public class TelemetryAgentCoreExtension implements ServiceExtension {
 
     @Override
     public void initialize(ServiceExtensionContext context) {
+        // Register telemetry policy scope for proper policy evaluation
+        policyEngine.registerScope(TELEMETRY_REQUEST_SCOPE, RequestTelemetryPolicyContext.class);
+
         var cache = new TokenCache();
         var iterationWaitMillis = context.getSetting(TELEMETRY_AGENT_MACHINE_ITERATION_WAIT_MILLIS, DEFAULT_ITERATION_WAIT);
         var waitStrategy = new ExponentialWaitStrategy(iterationWaitMillis);
@@ -126,14 +146,16 @@ public class TelemetryAgentCoreExtension implements ServiceExtension {
 
         var telemetryServiceClient = defaultTelemetryServiceClient(context);
 
-        credentialsManager = new TelemetryServiceCredentialManager(monitor, telemetryServiceClient, cache, executorInstrumentation);
+        var enabled = context.getSetting(TELEMETRY_AGENT_CREDENTIALS_MANAGER_ENABLED, true);
+        monitor.info("Telemetry agent credentials manager enabled: " + enabled);
+        credentialsManager = new TelemetryServiceCredentialManager(monitor, telemetryServiceClient, cache, executorInstrumentation, enabled);
         context.registerService(TelemetryServiceCredentialManager.class, credentialsManager);
     }
 
     @Provider
     public TelemetryServiceClient defaultTelemetryServiceClient(ServiceExtensionContext context) {
-        var tokenGenerationService = new JwtGenerationService(jwsSignerProvider);
-        return new TelemetryServiceClientImpl(httpClient, typeManager, tokenGenerationService, privateKeyAlias, didResolverRegistry, context.getParticipantId(), authorityDid);
+        return new TelemetryServiceClientImpl(httpClient, typeManager, didResolverRegistry,
+                authorityDid, identityService, policyEngine, telemetryPolicy, context.getParticipantId(), clock);
     }
 
     @NotNull
@@ -144,5 +166,3 @@ public class TelemetryAgentCoreExtension implements ServiceExtension {
     }
 
 }
-
-

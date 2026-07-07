@@ -40,7 +40,8 @@ import static java.lang.String.format;
 public class VaultService {
     
     private static final Logger LOGGER = Logger.getLogger(VaultService.class.getName());
-    
+    public static final String EDC_NS_URL = "https://w3id.org/edc/v0.0.1/ns";
+
     private final Vault vault;
     private final ObjectMapper objectMapper;
     private final Map<String, EdrProperties> cache = new ConcurrentHashMap<>();
@@ -130,25 +131,33 @@ public class VaultService {
         }
     }
     
-    private EdrProperties parseEdrProperties(JsonNode contentNode) {
+    public EdrProperties parseEdrProperties(JsonNode contentNode) {
         // Try to extract from both EDC properties and DataAddress properties
         JsonNode properties = contentNode.get("properties");
         JsonNode dataAddress = contentNode.at("/dataAddress/properties");
         
-        String bootstrapServers = getPropertyValue(properties, dataAddress, 
-                "https://w3id.org/edc/v0.0.1/ns/kafka.bootstrap.servers", "kafka.bootstrap.servers");
-        String topic = getPropertyValue(properties, dataAddress, 
-                "https://w3id.org/edc/v0.0.1/ns/topic", "topic");
-        String securityProtocol = getPropertyValue(properties, dataAddress, 
-                "https://w3id.org/edc/v0.0.1/ns/security.protocol", "security.protocol");
-        String saslMechanism = getPropertyValue(properties, dataAddress, 
-                "https://w3id.org/edc/v0.0.1/ns/sasl.mechanism", "sasl.mechanism");
-        String saslJaasConfig = getPropertyValue(properties, dataAddress, 
-                "https://w3id.org/edc/v0.0.1/ns/sasl.jaas.config", "sasl.jaas.config");
+        String bootstrapServers = getPropertyValue(properties, dataAddress,
+                 EDC_NS_URL + "/kafka.bootstrap.servers", "kafka.bootstrap.servers");
+        String topic = getPropertyValue(properties, dataAddress,
+                 EDC_NS_URL + "/topic", "topic");
+        String securityProtocol = getPropertyValue(properties, dataAddress,
+                 EDC_NS_URL + "/security.protocol", "security.protocol");
+        String saslMechanism = getPropertyValue(properties, dataAddress,
+                 EDC_NS_URL + "/sasl.mechanism", "sasl.mechanism");
+        String saslJaasConfig = getPropertyValue(properties, dataAddress,
+                 EDC_NS_URL + "/sasl.jaas.config", "sasl.jaas.config");
         
         // Extract username and password from JAAS config if available (for SASL PLAIN)
         String username = extractUsernameFromJaas(saslJaasConfig);
         String password = extractPasswordFromJaas(saslJaasConfig);
+
+        securityProtocol = securityProtocol != null ? securityProtocol : "PLAINTEXT";
+        saslMechanism = securityProtocol.startsWith("SASL")
+                ? (saslMechanism != null ? saslMechanism : "PLAIN")
+                : "NONE";
+
+        String tlsCaCrt = getPropertyValue(properties, dataAddress,
+                 EDC_NS_URL + "/tls_ca_crt", "tls_ca_crt");
         
         // Extract OAuth2 credentials from JAAS config if available (for OAUTHBEARER)
         String oauth2ClientId = extractOauth2ClientIdFromJaas(saslJaasConfig);
@@ -160,11 +169,11 @@ public class VaultService {
                 bootstrapServers != null ? bootstrapServers : "",
                 username,
                 password,
-                securityProtocol != null ? securityProtocol : "SASL_SSL",
-                saslMechanism != null ? saslMechanism : "PLAIN",
+                securityProtocol,
+                saslMechanism,
                 null, // tls_client_cert - default to one-way TLS
                 null, // tls_client_key - default to one-way TLS
-                null, // tls_ca_secret - default to "kafka-tls-ca"
+                tlsCaCrt,
                 oauth2ClientId,
                 oauth2ClientSecret,
                 oauth2TenantId,
@@ -186,7 +195,7 @@ public class VaultService {
         return value;
     }
     
-    private String extractUsernameFromJaas(String jaasConfig) {
+    String extractUsernameFromJaas(String jaasConfig) {
         if (jaasConfig == null || jaasConfig.isEmpty()) {
             return null;
         }
@@ -197,7 +206,7 @@ public class VaultService {
         return username;
     }
     
-    private String extractPasswordFromJaas(String jaasConfig) {
+    String extractPasswordFromJaas(String jaasConfig) {
         if (jaasConfig == null || jaasConfig.isEmpty()) {
             return null;
         }
@@ -241,12 +250,12 @@ public class VaultService {
         
         return jaasConfig.substring(start, end);
     }
-    
+
     /**
      * Extract OAuth2 client ID from JAAS config for OAUTHBEARER authentication.
      * Example: org.apache.kafka.common.security.oauthbearer.OAuthBearerLoginModule required clientId="abc" clientSecret="xyz";
      */
-    private String extractOauth2ClientIdFromJaas(String jaasConfig) {
+    String extractOauth2ClientIdFromJaas(String jaasConfig) {
         if (jaasConfig == null || jaasConfig.isEmpty()) {
             return null;
         }
@@ -256,7 +265,7 @@ public class VaultService {
     /**
      * Extract OAuth2 client secret from JAAS config for OAUTHBEARER authentication.
      */
-    private String extractOauth2ClientSecretFromJaas(String jaasConfig) {
+    String extractOauth2ClientSecretFromJaas(String jaasConfig) {
         if (jaasConfig == null || jaasConfig.isEmpty()) {
             return null;
         }
@@ -266,7 +275,7 @@ public class VaultService {
     /**
      * Extract OAuth2 tenant ID from JAAS config for OAUTHBEARER authentication.
      */
-    private String extractOauth2TenantIdFromJaas(String jaasConfig) {
+    String extractOauth2TenantIdFromJaas(String jaasConfig) {
         if (jaasConfig == null || jaasConfig.isEmpty()) {
             return null;
         }
@@ -276,7 +285,7 @@ public class VaultService {
     /**
      * Extract OAuth2 scope from JAAS config for OAUTHBEARER authentication.
      */
-    private String extractOauth2ScopeFromJaas(String jaasConfig) {
+    String extractOauth2ScopeFromJaas(String jaasConfig) {
         if (jaasConfig == null || jaasConfig.isEmpty()) {
             return null;
         }
@@ -293,7 +302,7 @@ public class VaultService {
                 "PLAIN",
                 null, // tls_client_cert - default to one-way TLS
                 null, // tls_client_key - default to one-way TLS
-                null, // tls_ca_secret - default to "kafka-tls-ca"
+                null, // tls_ca_crt
                 null, // oauth2_client_id
                 null, // oauth2_client_secret
                 null, // oauth2_tenant_id

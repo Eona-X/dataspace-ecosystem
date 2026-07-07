@@ -13,78 +13,107 @@
 
 package org.eclipse.dse.core.kafkaproxy.service;
 
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
 import io.fabric8.kubernetes.api.model.EnvVarBuilder;
+import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.IntOrString;
+import io.fabric8.kubernetes.api.model.LocalObjectReferenceBuilder;
+import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
+import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.ServicePortBuilder;
+import io.fabric8.kubernetes.api.model.StatusDetails;
+import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import org.eclipse.dse.core.kafkaproxy.model.DeploymentStatus;
 import org.eclipse.dse.core.kafkaproxy.model.EdrProperties;
+import org.eclipse.dse.core.kafkaproxy.model.Resource;
+import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
 import static java.lang.String.format;
+import static org.eclipse.dse.core.kafkaproxy.config.KafkaProxyConfig.LARGEST_AVAILABLE_PORT;
 
 /**
  * Service for managing Kubernetes deployments of Kafka proxies
  */
 public class KubernetesDeployerService {
-    
+
     private static final Logger LOGGER = Logger.getLogger(KubernetesDeployerService.class.getName());
+    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(KubernetesDeployerService.class);
+    public static final String PROXY_PROVIDER_TLS_CA = "proxy-provider-tls-ca";
+
+    private static final int KUBERNETES_MAX_NAME_LENGTH = 63;
+    private static final int KUBERNETES_MAX_LABEL_LENGTH = 63;
+    private static final int MIN_EDR_LENGTH_FOR_HASH = 8;
+    private static final int MAX_SAFE_PARTICIPANT_LENGTH = 12;
+    private static final int HASH_LENGTH = 8;
     
+    private static final int KP_PREFIX_LENGTH = 3; // "kp-"
+    private static final int SECRET_SUFFIX_LENGTH = 6; // "-secret"
+    private static final int CA_SUFFIX_LENGTH = 3; // "-ca"
+    private static final int DASH_SEPARATOR_LENGTH = 1; // "-"
+    
+    private static final String EDR_KEY_PREFIX = "edr--";
+    private static final int EDR_KEY_PREFIX_LENGTH = 5;
+    public static final String CA_CRT = "ca.crt";
+
     private final KubernetesClient kubernetesClient;
     private final String proxyNamespace;
     private final String proxyImage;
     private final int baseProxyPort;
     private final VaultService vaultService;
     private final String participantId;
-    private final String clusterIp;  // Optional fixed ClusterIP address
-    
+    private final String clusterIp; // Optional fixed ClusterIP address
+
     // Authentication configuration (supports PLAIN and OAUTHBEARER mechanisms)
     private final boolean authEnabled;
-    private final String authMechanism;  // PLAIN or OAUTHBEARER
-    private final String authTenantId;
+    private final String authMechanism; // PLAIN or OAUTHBEARER
     private final String authClientId;
-    private final String authStaticUsers;  // Only used for PLAIN mechanism
+    private final String authStaticUsers; // Only used for a PLAIN mechanism
     private final String authImage;
-    
+    private final String authImagePullSecret;
+
     // TLS listener configuration
     private final boolean tlsListenerEnabled;
     private final String tlsListenerCertSecret;
     private final String tlsListenerKeySecret;
     private final String tlsListenerCaSecret;
-    
+
     // Additional pod labels from configuration
     private final Map<String, String> additionalPodLabels;
-    
-    public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage, VaultService vaultService, String participantId) {
-        this(kubernetesClient, proxyNamespace, proxyImage, vaultService, participantId, null, 30001, false, "PLAIN", null, null, null, null, false, null, null, null, new HashMap<>());
-    }
-    
-    public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage, 
-                                   VaultService vaultService, String participantId, String clusterIp, int baseProxyPort, boolean authEnabled, String authMechanism,
-                                   String authTenantId, String authClientId, String authStaticUsers, String authImage,
-                                   boolean tlsListenerEnabled, String tlsListenerCertSecret, 
-                                   String tlsListenerKeySecret, String tlsListenerCaSecret) {
-        this(kubernetesClient, proxyNamespace, proxyImage, vaultService, participantId, clusterIp, baseProxyPort, authEnabled, authMechanism,
-                authTenantId, authClientId, authStaticUsers, authImage, tlsListenerEnabled, tlsListenerCertSecret,
-                tlsListenerKeySecret, tlsListenerCaSecret, new HashMap<>());
-    }
-    
-    public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage, 
-                                   VaultService vaultService, String participantId, String clusterIp, int baseProxyPort, boolean authEnabled, String authMechanism,
-                                   String authTenantId, String authClientId, String authStaticUsers, String authImage,
-                                   boolean tlsListenerEnabled, String tlsListenerCertSecret, 
-                                   String tlsListenerKeySecret, String tlsListenerCaSecret,
-                                   Map<String, String> additionalPodLabels) {
+
+    // Maximum number of broker ports to expose (for multi-broker clusters)
+    private final int maxBrokerPorts;
+
+    // Service configuration
+    private final String serviceType;
+    private final Map<String, String> serviceAnnotations;
+    private final Map<String, String> serviceLabels;
+
+    private final String serviceFqdnAddress;
+
+    public KubernetesDeployerService(KubernetesClient kubernetesClient, String proxyNamespace, String proxyImage,
+            VaultService vaultService, String participantId, String clusterIp, int baseProxyPort, boolean authEnabled,
+            String authMechanism, String authClientId, String authStaticUsers, String authImage,
+            String authImagePullSecret, boolean tlsListenerEnabled, String tlsListenerCertSecret,
+            String tlsListenerKeySecret, String tlsListenerCaSecret, Map<String, String> additionalPodLabels,
+            int maxBrokerPorts, String serviceType, Map<String, String> serviceAnnotations, Map<String, String> serviceLabels,
+            String serviceFqdnAddress) {
         this.kubernetesClient = kubernetesClient;
         this.proxyNamespace = proxyNamespace;
         this.proxyImage = proxyImage;
@@ -93,114 +122,157 @@ public class KubernetesDeployerService {
         this.clusterIp = clusterIp;
         this.baseProxyPort = baseProxyPort;
         this.authEnabled = authEnabled;
-        this.authMechanism = authMechanism != null ? authMechanism : "PLAIN";
-        this.authTenantId = authTenantId;
+        this.authMechanism = (authMechanism != null && !authMechanism.trim().isEmpty()) ? authMechanism : "PLAIN";
         this.authClientId = authClientId;
         this.authStaticUsers = authStaticUsers;
         this.authImage = authImage;
+        this.authImagePullSecret = authImagePullSecret;
         this.tlsListenerEnabled = tlsListenerEnabled;
         this.tlsListenerCertSecret = tlsListenerCertSecret;
         this.tlsListenerKeySecret = tlsListenerKeySecret;
         this.tlsListenerCaSecret = tlsListenerCaSecret;
         this.additionalPodLabels = additionalPodLabels != null ? new HashMap<>(additionalPodLabels) : new HashMap<>();
+        this.maxBrokerPorts = maxBrokerPorts;
+        this.serviceType = serviceType;
+        this.serviceAnnotations = serviceAnnotations != null ? new HashMap<>(serviceAnnotations) : new HashMap<>();
+        this.serviceLabels = serviceLabels != null ? new HashMap<>(serviceLabels) : new HashMap<>();
+        this.serviceFqdnAddress = serviceFqdnAddress;
     }
-    
-    /**
-     * Deploys a Kafka proxy for the given EDR key and properties.
-     * Deletes any existing proxy deployment and creates a new one.
-     * Updates the standardized service to point to the new deployment.
-     */
+
     public DeploymentStatus deployProxy(String edrKey, EdrProperties properties) {
         try {
             String proxyName = generateProxyName(edrKey);
-            String serviceName = generateServiceName(edrKey);
+            String serviceName = generateServiceName();
             LOGGER.info(format("Deploying Kafka proxy: %s (service: %s) for EDR: %s", proxyName, serviceName, edrKey));
-            
-            // Validate properties
-            if (properties.getBootstrapServers() == null || properties.getBootstrapServers().isEmpty()) {
-                String message = format("Missing bootstrap servers for EDR: %s", edrKey);
-                LOGGER.severe(message);
-                return new DeploymentStatus(edrKey, DeploymentStatus.Status.FAILED, message);
-            }
-            
-            // Find and delete any existing proxy deployments for this participant
-            String safeParticipantId = generateSafeParticipantId(participantId);
-            var existingDeployments = kubernetesClient.apps().deployments()
-                    .inNamespace(proxyNamespace)
-                    .withLabel("owner-participant", safeParticipantId)
-                    .withLabel("component", "kafka-proxy")
-                    .list()
-                    .getItems();
-            
-            for (var existingDeployment : existingDeployments) {
-                String oldDeploymentName = existingDeployment.getMetadata().getName();
-                String oldEdrKey = existingDeployment.getMetadata().getLabels().get("edr-id");
-                
-                LOGGER.info(format("Deleting existing deployment: %s (EDR: %s) before deploying new one", 
-                        oldDeploymentName, oldEdrKey));
-                
-                kubernetesClient.apps().deployments()
-                        .inNamespace(proxyNamespace)
-                        .withName(oldDeploymentName)
-                        .delete();
-                
-                // Do NOT untag old EDR to avoid requeuing it
-                LOGGER.info(format("Deleted deployment for EDR: %s (vault tag kept to prevent requeuing)", oldEdrKey));
-            }
-            
-            // Wait for deletion to complete if there were existing deployments
-            if (!existingDeployments.isEmpty()) {
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    LOGGER.warning("Thread interrupted while waiting for proxy deletion");
-                }
-                LOGGER.info("Old deployments deleted successfully");
-            }
-            
-            // Create secret for sensitive credentials before creating deployment
-            createProxySecret(edrKey, properties);
-            
-            // Create new deployment
+
+            checkEdrProperties(edrKey, properties);
+
+            cleanupExistingDeployments();
+
+            // 1. Create resources (ConfigMap, Secret) BEFORE deployment
+            Resource resource = new Resource(edrKey, proxyName, properties, null);
+            createOrUpdateTlsCaResource(resource);
+
+            // 2. Create the deployment
             Deployment deployment = createDeployment(edrKey, proxyName, properties);
-            kubernetesClient.resource(deployment).inNamespace(proxyNamespace).create();
-            
-            // Create or update standardized service (service name stays the same)
-            Service service = createService(edrKey, proxyName, serviceName);
-            try {
-                var existingService = kubernetesClient.services()
-                        .inNamespace(proxyNamespace)
-                        .withName(serviceName)
-                        .get();
-                if (existingService != null) {
-                    kubernetesClient.resource(service).inNamespace(proxyNamespace).update();
-                } else {
-                    kubernetesClient.resource(service).inNamespace(proxyNamespace).create();
-                }
-            } catch (Exception e) {
-                kubernetesClient.resource(service).inNamespace(proxyNamespace).create();
-            }
-            
-            LOGGER.info(format("Successfully deployed Kafka proxy: %s with service: %s for EDR: %s", 
+            Deployment deployed = kubernetesClient.resource(deployment).inNamespace(proxyNamespace).create();
+            String deploymentUid = deployed.getMetadata().getUid();
+
+            // 3. Update resources with OwnerReference to the deployment for automatic cleanup
+            Resource updatedResource = new Resource(edrKey, proxyName, properties, deploymentUid);
+            createOrUpdateTlsCaResource(updatedResource);
+
+            // Create or update a standardized service
+            createOrUpdateService(edrKey, proxyName, serviceName);
+
+            LOGGER.info(format("Successfully deployed Kafka proxy: %s with service: %s for EDR: %s",
                     proxyName, serviceName, edrKey));
-            
-            // Tag the secret as deployed in vault
-            boolean tagged = vaultService.tagSecretAsDeployed(edrKey, proxyName, true);
-            if (!tagged) {
-                LOGGER.warning(format("Failed to tag secret as deployed for EDR: %s", edrKey));
-            }
-            
-            return new DeploymentStatus(edrKey, DeploymentStatus.Status.DEPLOYED, 
+
+            // Tag the secret as deployed in a vault
+            tagSecretInVault(edrKey, proxyName);
+
+            return new DeploymentStatus(edrKey, DeploymentStatus.Status.DEPLOYED,
                     format("Proxy deployed successfully as %s", proxyName));
-            
+
+        } catch (IllegalArgumentException e) {
+            String message = format("Invalid configuration for EDR %s: %s", edrKey, e.getMessage());
+            LOGGER.severe(message);
+            return new DeploymentStatus(edrKey, DeploymentStatus.Status.FAILED, message);
         } catch (Exception e) {
             String message = format("Failed to deploy proxy for EDR %s: %s", edrKey, e.getMessage());
             LOGGER.severe(message);
             return new DeploymentStatus(edrKey, DeploymentStatus.Status.FAILED, message);
         }
     }
-    
+
+    private void checkEdrProperties(String edrKey, EdrProperties properties) {
+        if (properties.getBootstrapServers() == null || properties.getBootstrapServers().isEmpty()) {
+            throw new IllegalArgumentException(format("Missing bootstrap servers for EDR: %s", edrKey));
+        }
+    }
+
+    private void cleanupExistingDeployments() {
+        String safeParticipantId = generateSafeParticipantId(participantId);
+        var existingDeployments = kubernetesClient.apps().deployments()
+                .inNamespace(proxyNamespace)
+                .withLabel("owner-participant", safeParticipantId)
+                .withLabel("component", "kafka-proxy")
+                .list()
+                .getItems();
+
+        if (existingDeployments.isEmpty()) {
+            return;
+        }
+
+        for (var existingDeployment : existingDeployments) {
+            String oldDeploymentName = existingDeployment.getMetadata().getName();
+            String oldEdrKey = existingDeployment.getMetadata().getLabels().get("edr-id");
+
+            LOGGER.info(format("Deleting existing deployment: %s (EDR: %s) before deploying new one",
+                    oldDeploymentName, oldEdrKey));
+
+            kubernetesClient.apps().deployments()
+                    .inNamespace(proxyNamespace)
+                    .withName(oldDeploymentName)
+                    .delete();
+
+
+            waitForDeploymentsDeletion(existingDeployments);
+        }
+        LOGGER.info("Old deployments deleted successfully");
+    }
+
+    private void waitForDeploymentsDeletion(List<Deployment> deployments) {
+        Duration timeout = Duration.ofSeconds(30);
+        Instant start = Instant.now();
+
+        while (Instant.now().isBefore(start.plus(timeout))) {
+            boolean allDeleted = deployments.stream()
+                    .allMatch(dep -> {
+                        String name = dep.getMetadata().getName();
+                        return kubernetesClient.apps().deployments()
+                                .inNamespace(proxyNamespace)
+                                .withName(name)
+                                .get() == null;
+                    });
+
+            if (allDeleted) {
+                LOGGER.info("All deployments deleted successfully");
+                return;
+            }
+
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                LOGGER.warning("Thread interrupted while waiting for deployments deletion");
+                return;
+            }
+        }
+
+        LOGGER.warning("Timeout waiting for deployments deletion, proceeding anyway");
+    }
+
+    private void createOrUpdateTlsCaResource(Resource resource) {
+        EdrProperties properties = resource.properties();
+        if (properties.isTlsEnabled() && properties.getTlsCaCrt() != null && !properties.getTlsCaCrt().isEmpty()) {
+            createOrUpdateTlsCaConfigMap(resource);
+        }
+        createOrUpdateProxySecret(resource);
+    }
+
+    private void createOrUpdateService(String edrKey, String proxyName, String serviceName) {
+        Service service = createService(edrKey, proxyName, serviceName);
+        createOrUpdateResource(service, serviceName, "Service");
+    }
+
+    private void tagSecretInVault(String edrKey, String proxyName) {
+        boolean tagged = vaultService.tagSecretAsDeployed(edrKey, proxyName, true);
+        if (!tagged) {
+            LOGGER.warning(format("Failed to tag secret as deployed for EDR: %s", edrKey));
+        }
+    }
+
     /**
      * Checks if a proxy is deployed for the given EDR key.
      * Looks for any deployment with matching participant and EDR labels.
@@ -208,7 +280,7 @@ public class KubernetesDeployerService {
     public boolean isProxyDeployed(String edrKey) {
         try {
             String safeParticipantId = generateSafeParticipantId(participantId);
-            
+
             // Look for deployments with matching participant and EDR
             var deployments = kubernetesClient.apps().deployments()
                     .inNamespace(proxyNamespace)
@@ -217,11 +289,11 @@ public class KubernetesDeployerService {
                     .withLabel("edr-id", edrKey)
                     .list()
                     .getItems();
-            
+
             if (deployments.isEmpty()) {
                 return false;
             }
-            
+
             // Check if deployment is ready
             for (var deployment : deployments) {
                 Integer readyReplicas = deployment.getStatus().getReadyReplicas();
@@ -231,24 +303,25 @@ public class KubernetesDeployerService {
                     return true;
                 }
             }
-            
+
             return false;
-            
+
         } catch (KubernetesClientException e) {
             LOGGER.warning(format("Error checking deployment status for EDR %s: %s", edrKey, e.getMessage()));
             return false;
         }
     }
-    
+
     /**
      * Deletes the proxy deployment for the given EDR key.
-     * Finds deployment by labels and deletes it. Service remains for future deployments.
+     * Finds deployment by labels and deletes it. Service remains for future
+     * deployments.
      */
     public DeploymentStatus deleteProxy(String edrKey) {
         try {
             String safeParticipantId = generateSafeParticipantId(participantId);
             LOGGER.info(format("Deleting Kafka proxy for EDR: %s", edrKey));
-            
+
             // Find deployments with matching participant and EDR
             var deployments = kubernetesClient.apps().deployments()
                     .inNamespace(proxyNamespace)
@@ -257,23 +330,23 @@ public class KubernetesDeployerService {
                     .withLabel("edr-id", edrKey)
                     .list()
                     .getItems();
-            
+
             boolean anyDeleted = false;
             for (var deployment : deployments) {
                 String proxyName = deployment.getMetadata().getName();
                 LOGGER.info(format("Deleting deployment: %s for EDR: %s", proxyName, edrKey));
-                
+
                 var deleteResult = kubernetesClient.apps().deployments()
                         .inNamespace(proxyNamespace)
                         .withName(proxyName)
                         .delete();
-                
+
                 if (deleteResult != null && !deleteResult.isEmpty()) {
                     anyDeleted = true;
                     LOGGER.info(format("Successfully deleted deployment: %s", proxyName));
                 }
             }
-            
+
             // Delete associated secret
             String secretName = generateSecretName(edrKey);
             try {
@@ -287,23 +360,37 @@ public class KubernetesDeployerService {
             } catch (Exception e) {
                 LOGGER.warning(format("Failed to delete secret %s: %s", secretName, e.getMessage()));
             }
-            
+
+            // Delete associated ConfigMap
+            String cmName = generateTlsCaConfigMapName(edrKey);
+            try {
+                List<StatusDetails> cmDeleted = kubernetesClient.configMaps()
+                        .inNamespace(proxyNamespace)
+                        .withName(cmName)
+                        .delete();
+                if (cmDeleted != null && !cmDeleted.isEmpty()) {
+                    LOGGER.info(format("Successfully deleted ConfigMap: %s", cmName));
+                }
+            } catch (Exception e) {
+                LOGGER.warning(format("Failed to delete ConfigMap %s: %s", cmName, e.getMessage()));
+            }
+
             if (anyDeleted) {
-                return new DeploymentStatus(edrKey, DeploymentStatus.Status.DELETED, 
+                return new DeploymentStatus(edrKey, DeploymentStatus.Status.DELETED,
                         format("Proxy deleted successfully for EDR: %s", edrKey));
             } else {
                 LOGGER.warning(format("No proxy deployment found for EDR: %s", edrKey));
-                return new DeploymentStatus(edrKey, DeploymentStatus.Status.DELETED, 
+                return new DeploymentStatus(edrKey, DeploymentStatus.Status.DELETED,
                         format("No proxy found for EDR: %s", edrKey));
             }
-            
+
         } catch (Exception e) {
             String message = format("Failed to delete proxy for EDR %s: %s", edrKey, e.getMessage());
             LOGGER.severe(message);
             return new DeploymentStatus(edrKey, DeploymentStatus.Status.FAILED, message);
         }
     }
-    
+
     private Deployment createDeployment(String edrKey, String proxyName, EdrProperties properties) {
         String cleanBootstrapServers = properties.getBootstrapServers()
                 .replace("https://", "")
@@ -312,105 +399,185 @@ public class KubernetesDeployerService {
                 .replace("SSL://", "")
                 .replace("SASL_PLAINTEXT://", "")
                 .replace("SASL_SSL://", "");
-        
-        boolean needsTls = properties.isTlsEnabled();
-        
-        LOGGER.info(format("Creating deployment for %s - TLS: %s, Protocol: %s", 
+
+        boolean needsTls = properties.isTlsEnabled() || tlsListenerEnabled;
+
+        LOGGER.info(format("Creating deployment for %s - TLS: %s, Protocol: %s",
                 proxyName, needsTls, properties.getSecurityProtocol()));
         LOGGER.info(format("Bootstrap servers for %s: %s", proxyName, cleanBootstrapServers));
-        
+
         // Create labels with required Kubernetes standard labels
         Map<String, String> labels = new HashMap<>();
-        
+
+        // Inherit environment variables from the manager's process that match our
+        // plugin needs.
+        // This allows passing VERIFIER_* variables from the manager's pod to the proxy
+        // pods
+        Map<String, String> inheritedEnv = new HashMap<>();
+        System.getenv().forEach((k, v) -> {
+            if (k.startsWith("VERIFIER_") || k.startsWith("PROVIDER_") || k.startsWith("INFO_")) {
+                inheritedEnv.put(k, v);
+            }
+        });
+
         // Required standard Kubernetes labels for admission webhook
         labels.put("app.kubernetes.io/name", "kafka-proxy");
         labels.put("app.kubernetes.io/instance", proxyName);
         labels.put("app.kubernetes.io/component", "proxy");
         labels.put("app.kubernetes.io/managed-by", "kafka-proxy-k8s-manager");
-        
+
         // Custom labels for identification and management
         labels.put("app", proxyName);
         labels.put("edr-id", edrKey);
         labels.put("component", "kafka-proxy");
         labels.put("managed-by", "edr-kubectl-deployer");
         labels.put("owner-participant", generateSafeParticipantId(participantId));
-        // For full participant ID, we need to make it Kubernetes-safe while preserving info
+        // For full participant ID, we need to make it Kubernetes-safe while preserving
+        // info
         labels.put("owner-participant-full", generateSafeLabelValue(participantId));
         labels.put("tls-enabled", String.valueOf(needsTls));
         labels.put("security-protocol", properties.getSecurityProtocol());
         labels.put("auth-enabled", String.valueOf(authEnabled));
         labels.put("auth-mechanism", authMechanism);
-        
-        // Add additional pod labels from Helm chart configuration
+
+        // Add additional pod labels from a Helm chart configuration
         if (additionalPodLabels != null && !additionalPodLabels.isEmpty()) {
             labels.putAll(additionalPodLabels);
             LOGGER.info(format("Added %d additional pod labels from configuration", additionalPodLabels.size()));
         }
-        
+
         // Build container arguments
-        var args = buildContainerArgs(edrKey, cleanBootstrapServers, properties);
-        
+        List<String> args = buildContainerArgs(cleanBootstrapServers, properties);
+
         // Use fixed port
-        int port = generateConsistentPort(edrKey);
-        
+        int port = generateConsistentPort();
+
         return new DeploymentBuilder()
                 .withNewMetadata()
-                    .withName(proxyName)
-                    .withNamespace(proxyNamespace)
-                    .withLabels(labels)
+                .withName(proxyName)
+                .withNamespace(proxyNamespace)
+                .withLabels(labels)
                 .endMetadata()
                 .withNewSpec()
-                    .withReplicas(1)
-                    .withNewSelector()
-                        .withMatchLabels(Map.of("app", proxyName))
-                    .endSelector()
-                    .withNewTemplate()
-                        .withNewMetadata()
-                            .withLabels(labels)
-                        .endMetadata()
-                        .withNewSpec()
-                            .addNewContainer()
-                                .withName("kafka-proxy")
-                                .withImage(authEnabled && authImage != null ? authImage : proxyImage)
-                                .withImagePullPolicy("IfNotPresent")
-                                .withPorts(new ContainerPortBuilder()
-                                        .withContainerPort(port)
-                                        .withName("proxy-port")
-                                        .build())
-                                .withArgs(args)
-                                .withEnv(createEnvironmentVariables(edrKey, properties))
-                                .withVolumeMounts(createVolumeMounts(properties))
-                            .endContainer()
-                            .withVolumes(createVolumes(properties))
-                        .endSpec()
-                    .endTemplate()
+                .withReplicas(1)
+                .withNewSelector()
+                .withMatchLabels(Map.of("app", proxyName))
+                .endSelector()
+                .withNewTemplate()
+                .withNewMetadata()
+                .withLabels(labels)
+                .endMetadata()
+                .withNewSpec()
+                .withImagePullSecrets(new LocalObjectReferenceBuilder().withName(authImagePullSecret).build())
+                .addNewContainer()
+                .withName("kafka-proxy")
+                .withImage(authEnabled && authImage != null ? authImage : proxyImage)
+                .withImagePullPolicy("IfNotPresent")
+                .withPorts(createContainerPorts(port))
+                .withArgs(args)
+                .withEnv(createEnvironmentVariables(edrKey, properties, inheritedEnv))
+                .withVolumeMounts(createVolumeMounts(properties))
+                .endContainer()
+                .withVolumes(createVolumes(edrKey, properties))
+                .endSpec()
+                .endTemplate()
                 .endSpec()
                 .build();
     }
-    
-    private java.util.List<io.fabric8.kubernetes.api.model.EnvVar> createEnvironmentVariables(String edrKey, EdrProperties properties) {
-        var envVars = new java.util.ArrayList<io.fabric8.kubernetes.api.model.EnvVar>();
+
+    /**
+     * Creates container port definitions for the proxy.
+     * Includes the base port plus sequential ports for each broker in the cluster.
+     */
+    private java.util.List<io.fabric8.kubernetes.api.model.ContainerPort> createContainerPorts(int basePort) {
+        var ports = new java.util.ArrayList<io.fabric8.kubernetes.api.model.ContainerPort>();
+
+        // Add a base bootstrap port
+        ports.add(new ContainerPortBuilder()
+                .withContainerPort(basePort)
+                .withName("proxy-port")
+                .withProtocol("TCP")
+                .build());
+
+        // Add sequential ports for each broker (starting from basePort+1)
+        for (int i = 1; i <= maxBrokerPorts && basePort + maxBrokerPorts <= LARGEST_AVAILABLE_PORT; i++) {
+            ports.add(new ContainerPortBuilder()
+                    .withContainerPort(basePort + i)
+                    .withName(format("broker-port-%d", i))
+                    .withProtocol("TCP")
+                    .build());
+        }
+
+        LOGGER.info(format("Exposing %d container ports: base port %d + %d broker ports (%d-%d)",
+                ports.size(), basePort, maxBrokerPorts, basePort + 1, basePort + maxBrokerPorts));
+
+        return ports;
+    }
+
+    /**
+     * Creates service port definitions for the proxy.
+     * Includes the base port plus sequential ports for each broker in the cluster.
+     */
+    private java.util.List<io.fabric8.kubernetes.api.model.ServicePort> createServicePorts(int basePort) {
+        var ports = new java.util.ArrayList<io.fabric8.kubernetes.api.model.ServicePort>();
+
+        // Add a base bootstrap port
+        ports.add(new ServicePortBuilder()
+                .withName("proxy-port")
+                .withPort(basePort)
+                .withTargetPort(new IntOrString(basePort))
+                .withProtocol("TCP")
+                .build());
+
+        // Add sequential ports for each broker (starting from basePort+1)
+        for (int i = 1; i <= maxBrokerPorts && basePort + maxBrokerPorts <= LARGEST_AVAILABLE_PORT; i++) {
+            ports.add(new ServicePortBuilder()
+                    .withName(format("broker-port-%d", i))
+                    .withPort(basePort + i)
+                    .withTargetPort(new IntOrString(basePort + i))
+                    .withProtocol("TCP")
+                    .build());
+        }
+
+        LOGGER.info(format("Exposing %d service ports: base port %d + %d broker ports (%d-%d)",
+                ports.size(), basePort, maxBrokerPorts, basePort + 1, basePort + maxBrokerPorts));
+
+        return ports;
+    }
+
+    private java.util.List<io.fabric8.kubernetes.api.model.EnvVar> createEnvironmentVariables(String edrKey,
+            EdrProperties properties, Map<String, String> inheritedEnv) {
+        List<io.fabric8.kubernetes.api.model.EnvVar> envVars = new ArrayList<>();
         String secretName = generateSecretName(edrKey);
-        
+
+        // Add inherited environment variables from a manager (VERIFIER_*, PROVIDER_*)
+        if (inheritedEnv != null) {
+            inheritedEnv.forEach((k, v) ->
+                    envVars.add(new EnvVarBuilder()
+                        .withName(k)
+                        .withValue(v)
+                        .build()));
+        }
+
         // Add environment variables from secret for sensitive data
         if ("PLAIN".equals(properties.getSaslMechanism())) {
             // SASL PLAIN credentials
             envVars.add(new EnvVarBuilder()
                     .withName("SASL_USERNAME")
                     .withNewValueFrom()
-                        .withNewSecretKeyRef()
-                            .withName(secretName)
-                            .withKey("sasl-username")
-                        .endSecretKeyRef()
+                    .withNewSecretKeyRef()
+                    .withName(secretName)
+                    .withKey("sasl-username")
+                    .endSecretKeyRef()
                     .endValueFrom()
                     .build());
             envVars.add(new EnvVarBuilder()
                     .withName("SASL_PASSWORD")
                     .withNewValueFrom()
-                        .withNewSecretKeyRef()
-                            .withName(secretName)
-                            .withKey("sasl-password")
-                        .endSecretKeyRef()
+                    .withNewSecretKeyRef()
+                    .withName(secretName)
+                    .withKey("sasl-password")
+                    .endSecretKeyRef()
                     .endValueFrom()
                     .build());
         } else if ("OAUTHBEARER".equals(properties.getSaslMechanism()) && properties.hasOauth2Credentials()) {
@@ -418,33 +585,43 @@ public class KubernetesDeployerService {
             envVars.add(new EnvVarBuilder()
                     .withName("OAUTH2_CLIENT_SECRET")
                     .withNewValueFrom()
-                        .withNewSecretKeyRef()
-                            .withName(secretName)
-                            .withKey("oauth2-client-secret")
-                        .endSecretKeyRef()
+                    .withNewSecretKeyRef()
+                    .withName(secretName)
+                    .withKey("oauth2-client-secret")
+                    .endSecretKeyRef()
                     .endValueFrom()
                     .build());
         }
-        
+
         // Add auth static users if configured
         if (authEnabled && authStaticUsers != null && !authStaticUsers.isEmpty()) {
             envVars.add(new EnvVarBuilder()
                     .withName("AUTH_STATIC_USERS")
                     .withNewValueFrom()
-                        .withNewSecretKeyRef()
-                            .withName(secretName)
-                            .withKey("auth-static-users")
-                        .endSecretKeyRef()
+                    .withNewSecretKeyRef()
+                    .withName(secretName)
+                    .withKey("auth-static-users")
+                    .endSecretKeyRef()
                     .endValueFrom()
                     .build());
+            LOGGER.info(format("Injected AUTH_STATIC_USERS from secret %s", secretName));
         }
-        
+
+        // Add plugin configuration from Vault or extraEnv if applicable
+        // The extraEnv from Values.yaml are already handled by the manager if they are
+        // passed in the configuration,
+        // but here we are in the dynamic proxy deployment.
+
+        // Remove any potentially conflicting environment variables that Secret would
+        // override anyway
+        // or ensure that Secret handles specific OAUTH2/SASL variables.
+
         return envVars;
     }
-    
+
     private java.util.List<io.fabric8.kubernetes.api.model.VolumeMount> createVolumeMounts(EdrProperties properties) {
-        var volumeMounts = new java.util.ArrayList<io.fabric8.kubernetes.api.model.VolumeMount>();
-        
+        List<VolumeMount> volumeMounts = new ArrayList<>();
+
         if (properties.isTlsEnabled()) {
             // Always mount CA certificate for TLS verification
             volumeMounts.add(new io.fabric8.kubernetes.api.model.VolumeMountBuilder()
@@ -452,7 +629,7 @@ public class KubernetesDeployerService {
                     .withMountPath("/etc/tls")
                     .withReadOnly(true)
                     .build());
-            
+
             // Mount client certificates only if mutual TLS is configured
             if (properties.hasMutualTls()) {
                 volumeMounts.add(new io.fabric8.kubernetes.api.model.VolumeMountBuilder()
@@ -462,7 +639,7 @@ public class KubernetesDeployerService {
                         .build());
             }
         }
-        
+
         // Mount TLS listener certificates if enabled
         if (tlsListenerEnabled && tlsListenerCertSecret != null && tlsListenerKeySecret != null) {
             volumeMounts.add(new io.fabric8.kubernetes.api.model.VolumeMountBuilder()
@@ -471,33 +648,37 @@ public class KubernetesDeployerService {
                     .withReadOnly(true)
                     .build());
         }
-        
+
         return volumeMounts;
     }
-    
-    private java.util.List<io.fabric8.kubernetes.api.model.Volume> createVolumes(EdrProperties properties) {
+
+    private java.util.List<io.fabric8.kubernetes.api.model.Volume> createVolumes(String edrKey, EdrProperties properties) {
         var volumes = new java.util.ArrayList<io.fabric8.kubernetes.api.model.Volume>();
-        
+
         if (properties.isTlsEnabled()) {
             // Always add CA certificate volume
+            String caConfigMapName = (properties.getTlsCaCrt() != null && !properties.getTlsCaCrt().isEmpty())
+                    ? generateTlsCaConfigMapName(edrKey)
+                    : PROXY_PROVIDER_TLS_CA; // Fallback to manual ConfigMap if no certificate content
+
             volumes.add(new io.fabric8.kubernetes.api.model.VolumeBuilder()
                     .withName("tls-ca")
                     .withNewConfigMap()
-                        .withName(properties.getTlsCaSecret())
+                    .withName(caConfigMapName)
                     .endConfigMap()
                     .build());
-            
+
             // Add client certificate volume only if mutual TLS is configured
             if (properties.hasMutualTls()) {
                 volumes.add(new io.fabric8.kubernetes.api.model.VolumeBuilder()
                         .withName("tls-client")
                         .withNewSecret()
-                            .withSecretName("kafka-tls-client-certificates")
+                        .withSecretName("kafka-tls-client-certificates")
                         .endSecret()
                         .build());
             }
         }
-        
+
         // Add TLS listener certificates if enabled
         if (tlsListenerEnabled && tlsListenerCertSecret != null && tlsListenerKeySecret != null) {
             var secretItems = new java.util.ArrayList<io.fabric8.kubernetes.api.model.KeyToPath>();
@@ -509,63 +690,60 @@ public class KubernetesDeployerService {
                     .withKey("tls.key")
                     .withPath("tls.key")
                     .build());
-            
+
             // Add CA certificate if mutual TLS is enabled
             if (tlsListenerCaSecret != null && !tlsListenerCaSecret.isEmpty()) {
                 secretItems.add(new io.fabric8.kubernetes.api.model.KeyToPathBuilder()
-                        .withKey("ca.crt")
-                        .withPath("ca.crt")
+                        .withKey(CA_CRT)
+                        .withPath(CA_CRT)
                         .build());
             }
-            
+
             volumes.add(new io.fabric8.kubernetes.api.model.VolumeBuilder()
                     .withName("tls-listener")
                     .withNewSecret()
-                        .withSecretName(tlsListenerCertSecret)
-                        .withItems(secretItems)
+                    .withSecretName(tlsListenerCertSecret)
+                    .withItems(secretItems)
                     .endSecret()
                     .build());
         }
-        
+
         return volumes;
     }
-    
+
     private Service createService(String edrKey, String proxyName, String serviceName) {
         Map<String, String> labels = new HashMap<>();
-        
+
         // Required standard Kubernetes labels
         labels.put("app.kubernetes.io/name", "kafka-proxy");
         labels.put("app.kubernetes.io/instance", serviceName);
         labels.put("app.kubernetes.io/component", "service");
         labels.put("app.kubernetes.io/managed-by", "kafka-proxy-k8s-manager");
-        
+
         // Custom labels for identification
         labels.put("app", proxyName);
         labels.put("edr-id", edrKey);
         labels.put("component", "kafka-proxy");
         labels.put("managed-by", "edr-kubectl-deployer");
         labels.put("owner-participant", generateSafeParticipantId(participantId));
-        
+        labels.putAll(serviceLabels != null && !serviceLabels.isEmpty() ? serviceLabels : new HashMap<>());
+
         // Use fixed port
-        int port = generateConsistentPort(edrKey);
-        
+        int port = generateConsistentPort();
+
         ServiceBuilder builder = new ServiceBuilder()
                 .withNewMetadata()
-                    .withName(serviceName)  // Use standardized service name
-                    .withNamespace(proxyNamespace)
-                    .withLabels(labels)
+                .withName(serviceName) // Use standardized service name
+                .withNamespace(proxyNamespace)
+                .withAnnotations(serviceAnnotations != null && !serviceAnnotations.isEmpty() ? serviceAnnotations : new HashMap<>())
+                .withLabels(labels)
                 .endMetadata()
                 .withNewSpec()
-                    .withSelector(Map.of("app", proxyName))  // Selector points to deployment
-                    .withPorts(new ServicePortBuilder()
-                            .withName("proxy-port")
-                            .withPort(port)
-                            .withTargetPort(new IntOrString(port))
-                            .withProtocol("TCP")
-                            .build())
-                    .withType("ClusterIP")
+                .withSelector(Map.of("app", proxyName)) // Selector points to deployment
+                .withPorts(createServicePorts(port))
+                .withType(serviceType != null ? serviceType : "ClusterIP")
                 .endSpec();
-        
+
         // Set fixed ClusterIP if configured
         if (clusterIp != null && !clusterIp.isEmpty()) {
             LOGGER.info(format("Configuring service with fixed ClusterIP: %s", clusterIp));
@@ -573,116 +751,140 @@ public class KubernetesDeployerService {
                     .withClusterIP(clusterIp)
                     .endSpec();
         }
-        
+
         return builder.build();
     }
-    
-    private java.util.List<String> buildContainerArgs(String edrKey, String cleanBootstrapServers, EdrProperties properties) {
+
+    private java.util.List<String> buildContainerArgs(String cleanBootstrapServers,
+            EdrProperties properties) {
+
         var args = new java.util.ArrayList<String>();
         args.add("server");
-        
+        args.add("--debug-enable");
+
         // Use standardized service name that external clients will connect to
-        String serviceName = generateServiceName(edrKey);
-        
+        String serviceName = generateServiceName();
+
         // Use fixed port
-        int port = generateConsistentPort(edrKey);
-        
-        // Use the three-parameter format: source,listen,advertised
+        int port = generateConsistentPort();
+
+        // Use the three-parameter format: source, listen, advertised
         // The advertised address should be the standardized service name
-        args.add(format("--bootstrap-server-mapping=%s,0.0.0.0:%d,%s:%d", 
-                cleanBootstrapServers, port, serviceName, port));
-        args.add(format("--dynamic-advertised-listener=%s:%d", serviceName, port));
-        
-        // Add SASL configuration based on mechanism
+        String advertisedAddress = serviceName;
+        if (proxyNamespace != null && !proxyNamespace.isEmpty()) {
+            advertisedAddress = format("%s.%s", serviceName, proxyNamespace);
+        }
+
+        // Use serviceAddressIp if provided (for external access), otherwise use internal DNS
+        String finalAdvertisedAddress = (serviceFqdnAddress != null && !serviceFqdnAddress.isEmpty())
+                ? serviceFqdnAddress : advertisedAddress;
+
+        args.add(format("--bootstrap-server-mapping=%s,0.0.0.0:%d,%s:%d",
+                cleanBootstrapServers, port, finalAdvertisedAddress, port));
+
+        // Configure advertised address for dynamic listeners (brokers)
+        args.add(format("--dynamic-advertised-listener=%s", finalAdvertisedAddress));
+
+        args.add(format("--dynamic-sequential-min-port=%d", port + 1));
+
         if ("PLAIN".equals(properties.getSaslMechanism())) {
+            LOG.info("SASL PLAIN authentication enabled");
             // SASL PLAIN authentication
             args.add("--sasl-enable");
-            
+
             // Use environment variables for sensitive credentials
             args.add("--sasl-username=$(SASL_USERNAME)");
             args.add("--sasl-password=$(SASL_PASSWORD)");
-            
+
             LOGGER.info("Adding SASL PLAIN authentication with credentials from secret");
         } else if ("OAUTHBEARER".equals(properties.getSaslMechanism()) && properties.hasOauth2Credentials()) {
-            // OAuth2/OIDC authentication using SASL plugin with entra-token-provider
+            LOG.info("OAuth2/OIDC authentication enabled");
+            // OAuth2/OIDC authentication using SASL plugin with oidc-token-provider
             // This uses standard Kafka SASL OAUTHBEARER protocol (not gateway auth)
             args.add("--sasl-enable");
             args.add("--sasl-plugin-enable");
             args.add("--sasl-plugin-mechanism=OAUTHBEARER");
-            args.add("--sasl-plugin-command=/usr/local/bin/entra-token-provider");
+            args.add("--sasl-plugin-command=/usr/local/bin/oidc-token-provider");
             args.add("--sasl-plugin-timeout=30s");
             args.add(format("--sasl-plugin-param=--tenant-id=%s", properties.getOauth2TenantId()));
             args.add(format("--sasl-plugin-param=--client-id=%s", properties.getOauth2ClientId()));
-            // Pass environment variable NAME (not value) to avoid credential exposure in logs
-            // Plugin detects OAUTH2_CLIENT_SECRET pattern and reads from environment at runtime
+            // Pass environment variable NAME (not value) to avoid credential exposure in
+            // logs
+            // Plugin detects a OAUTH2_CLIENT_SECRET pattern and reads from an environment at
+            // runtime
             args.add("--sasl-plugin-param=--client-secret=OAUTH2_CLIENT_SECRET");
-            
+
             // Add scope if specified
             if (properties.getOauth2Scope() != null && !properties.getOauth2Scope().isEmpty()) {
                 args.add(format("--sasl-plugin-param=--scope=%s", properties.getOauth2Scope()));
             }
-            
-            
-            LOGGER.info(format("Adding OAuth2 SASL plugin authentication with mechanism=OAUTHBEARER, tenant-id: %s, client-id: %s", 
+
+            LOGGER.info(format(
+                    "Adding OAuth2 SASL plugin authentication with mechanism=OAUTHBEARER, tenant-id: %s, client-id: %s",
                     properties.getOauth2TenantId(), properties.getOauth2ClientId()));
         }
-        
+
         // Add TLS configuration if needed
         if (properties.isTlsEnabled()) {
             args.add("--tls-enable");
             args.add("--tls-ca-chain-cert-file=/etc/tls/ca.crt");
-            
-            // Check if client certificate and key are provided for mutual TLS
+
+            // Check if a client certificate and key are provided for mutual TLS
             if (properties.hasMutualTls()) {
                 // Mutual TLS - client certificate authentication
                 args.add("--tls-client-cert-file=/etc/tls/client/" + properties.getTlsClientCert());
                 args.add("--tls-client-key-file=/etc/tls/client/" + properties.getTlsClientKey());
-                LOGGER.info("Adding mutual TLS configuration with client certificate: " + properties.getTlsClientCert());
+                LOGGER.info(
+                        "Adding mutual TLS configuration with a client certificate: " + properties.getTlsClientCert());
             } else {
                 // One-way TLS - server authentication only
                 LOGGER.info("Adding one-way TLS configuration with CA certificate only");
             }
         }
         
+        
+        LOGGER.info("authEnabled : " + authEnabled);
+
         // Add authentication if enabled (supports PLAIN and OAUTHBEARER mechanisms)
-        if (authEnabled && authTenantId != null && authClientId != null) {
+        if (authEnabled) {
+            // 1. INCOMING AUTHENTICATION (App -> Proxy)
             args.add("--auth-local-enable");
-            
-            // Select mechanism and plugin based on configuration
+
+            boolean isAuthClientIdValid = authClientId != null && !authClientId.isEmpty() && !authClientId.contains("<");
             if ("OAUTHBEARER".equalsIgnoreCase(authMechanism)) {
-                // OAUTHBEARER - proper OAuth2 flow using entra-token-info
+                LOGGER.info("mechanism : OAUTHBEARER");
                 args.add("--auth-local-mechanism=OAUTHBEARER");
-                args.add("--auth-local-command=/usr/local/bin/entra-token-info");
-                args.add(format("--auth-local-param=--tenant-id=%s", authTenantId));
-                args.add(format("--auth-local-param=--client-id=%s", authClientId));
-                LOGGER.info(format("Adding OAUTHBEARER authentication with tenant-id: %s, client-id: %s", 
-                        authTenantId, authClientId));
-            } else {
-                // PLAIN - JWT-over-PLAIN hybrid using entra-token-verifier (default)
-                args.add("--auth-local-mechanism=PLAIN");
-                args.add("--auth-local-command=/usr/local/bin/entra-token-verifier");
-                args.add(format("--auth-local-param=--tenant-id=%s", authTenantId));
-                args.add(format("--auth-local-param=--client-id=%s", authClientId));
-                
-                if (authStaticUsers != null && !authStaticUsers.isEmpty()) {
-                    // Pass environment variable NAME (not value) to avoid credential exposure in logs
-                    // Plugin detects ENV_VAR_NAME pattern and reads credentials from environment at runtime
-                    args.add("--auth-local-param=--static-user=AUTH_STATIC_USERS");
-                    LOGGER.info(format("Adding PLAIN authentication (JWT-over-PLAIN) with tenant-id: %s, client-id: %s, static-users: [from secret]", 
-                            authTenantId, authClientId));
-                } else {
-                    LOGGER.info(format("Adding PLAIN authentication (JWT-over-PLAIN) with tenant-id: %s, client-id: %s", 
-                            authTenantId, authClientId));
+                args.add("--auth-local-command=/usr/local/bin/oidc-token-info");
+                args.add("--auth-local-param=--debug");
+
+                if (isAuthClientIdValid) {
+                    args.add(format("--auth-local-param=--client-id=%s", authClientId));
                 }
+                LOGGER.info(format("Adding OAUTHBEARER incoming auth with client-id: %s", authClientId));
+            } else {
+                LOGGER.info("mechanism : PLAIN");
+
+                args.add("--auth-local-mechanism=PLAIN");
+                args.add("--auth-local-command=/usr/local/bin/oidc-token-verifier");
+                args.add("--auth-local-param=--debug");
+
+                if (isAuthClientIdValid) {
+                    args.add(format("--auth-local-param=--client-id=%s", authClientId));
+                }
+
+                if (authStaticUsers != null && !authStaticUsers.isEmpty()) {
+                    args.add("--auth-local-param=--static-user=$(AUTH_STATIC_USERS)");
+                }
+                LOGGER.info(format("Adding PLAIN incoming auth with client-id: %s, static-users: %s", authClientId, authStaticUsers != null ? "enabled" : "disabled"));
             }
         }
-        
+
         // Add TLS listener configuration if enabled
         if (tlsListenerEnabled && tlsListenerCertSecret != null && tlsListenerKeySecret != null) {
             args.add("--proxy-listener-tls-enable");
             args.add("--proxy-listener-cert-file=/etc/tls/listener/tls.crt");
             args.add("--proxy-listener-key-file=/etc/tls/listener/tls.key");
-            
+
             // Add CA certificate if provided for mutual TLS
             if (tlsListenerCaSecret != null && !tlsListenerCaSecret.isEmpty()) {
                 args.add("--proxy-listener-ca-chain-cert-file=/etc/tls/listener/ca.crt");
@@ -691,45 +893,45 @@ public class KubernetesDeployerService {
                 LOGGER.info("Adding TLS listener configuration (one-way TLS)");
             }
         }
-        
+
         return args;
     }
-    
+
     /**
      * Generates a deployment name that includes the EDR key for uniqueness
      */
     private String generateProxyName(String edrKey) {
         String safeParticipantId = generateSafeParticipantId(participantId);
-        
-        // Extract UUID part from EDR key to keep names short
+
+        // Extract UUID part from an EDR key to keep names short
         String shortEdrKey = edrKey;
-        if (edrKey.startsWith("edr--")) {
-            shortEdrKey = edrKey.substring(5); // Remove "edr--" prefix
+        if (edrKey.startsWith(EDR_KEY_PREFIX)) {
+            shortEdrKey = edrKey.substring(EDR_KEY_PREFIX_LENGTH); // Remove EDR key prefix
         }
-        
+
         // Create deployment name: kp-<participant>-<edr-short>
         String proxyName = format("kp-%s-%s", safeParticipantId, shortEdrKey);
-        
-        // Ensure total length is under 63 characters (Kubernetes limit)
-        if (proxyName.length() > 63) {
-            int maxEdrLength = 63 - safeParticipantId.length() - 4; // 4 for "kp-" and "-"
-            if (maxEdrLength > 8) {
+
+        // Ensure total length is under Kubernetes limit
+        if (proxyName.length() > KUBERNETES_MAX_NAME_LENGTH) {
+            int maxEdrLength = KUBERNETES_MAX_NAME_LENGTH - safeParticipantId.length() - KP_PREFIX_LENGTH - DASH_SEPARATOR_LENGTH;
+            if (maxEdrLength > MIN_EDR_LENGTH_FOR_HASH) {
                 shortEdrKey = shortEdrKey.substring(0, Math.min(shortEdrKey.length(), maxEdrLength));
                 proxyName = format("kp-%s-%s", safeParticipantId, shortEdrKey);
             } else {
                 // Use hash if participant ID is too long
                 String hash = Integer.toHexString(participantId.hashCode()).replaceAll("-", "");
-                proxyName = format("kp-%s-%s", hash.substring(0, 8), shortEdrKey.substring(0, 8));
+                proxyName = format("kp-%s-%s", hash.substring(0, HASH_LENGTH), shortEdrKey.substring(0, HASH_LENGTH));
             }
         }
-        
+
         return proxyName.toLowerCase().replace("_", "-");
     }
-    
+
     /**
      * Generates a standardized service name (always the same for this participant)
      */
-    private String generateServiceName(String edrKey) {
+    private String generateServiceName() {
         String safeParticipantId = generateSafeParticipantId(participantId);
         return format("kp-%s-service", safeParticipantId).toLowerCase().replace("_", "-");
     }
@@ -741,21 +943,21 @@ public class KubernetesDeployerService {
         if (participantId == null || participantId.isEmpty()) {
             return "default";
         }
-        
+
         // Extract meaningful part from DID or URL
         String safeName = participantId;
-        
+
         // Handle DID format (did:web:consumer-identityhub%3A8383:api:did)
         if (participantId.startsWith("did:web:")) {
             String[] parts = participantId.split(":");
             if (parts.length >= 3) {
                 safeName = parts[2]; // Get the host part
-                // Remove URL encoding and extract meaningful name
+                // Remove URL encoding and extract a meaningful name
                 safeName = safeName.replace("%3A", "").replace("%2F", "");
-                // Extract main part before port or path
+                // Extract a main part before port or path
                 if (safeName.contains("-")) {
                     String[] hostParts = safeName.split("-");
-                    safeName = hostParts[0]; // Take first part (e.g., "consumer" from "consumer-identityhub")
+                    safeName = hostParts[0]; // Take the first part (e.g., "consumer" from "consumer-identityhub")
                 }
             }
         } else if (participantId.startsWith("urn:connector:")) { // Handle URN format (urn:connector:provider)
@@ -765,27 +967,27 @@ public class KubernetesDeployerService {
                 java.net.URI uri = new java.net.URI(participantId);
                 safeName = uri.getHost();
                 if (safeName != null && safeName.contains(".")) {
-                    safeName = safeName.split("\\.")[0]; // Take first part of domain
+                    safeName = safeName.split("\\.")[0]; // Take a first part of domain
                 }
             } catch (Exception e) {
                 // Fallback to cleaning the original string
             }
         }
-        
+
         // Clean for Kubernetes naming requirements
         safeName = safeName.toLowerCase()
-                .replaceAll("[^a-z0-9-]", "")  // Remove invalid chars completely
-                .replaceAll("-+", "-")         // Collapse multiple dashes
-                .replaceAll("^-|-$", "");      // Remove leading/trailing dashes
-        
+                .replaceAll("[^a-z0-9-]", "") // Remove invalid chars completely
+                .replaceAll("-+", "-") // Collapse multiple dashes
+                .replaceAll("^-|-$", ""); // Remove leading/trailing dashes
+
         // Limit length for Kubernetes (keep it short for proxy names)
-        if (safeName.length() > 12) {
-            safeName = safeName.substring(0, 12);
+        if (safeName.length() > MAX_SAFE_PARTICIPANT_LENGTH) {
+            safeName = safeName.substring(0, MAX_SAFE_PARTICIPANT_LENGTH);
         }
-        
+
         // Ensure it doesn't end with dash
         safeName = safeName.replaceAll("-$", "");
-        
+
         return safeName.isEmpty() ? "default" : safeName;
     }
 
@@ -797,7 +999,7 @@ public class KubernetesDeployerService {
         if (value == null || value.isEmpty()) {
             return "unknown";
         }
-        
+
         // Convert special characters to safe alternatives
         String safeValue = value
                 .replace(":", "-")
@@ -806,52 +1008,153 @@ public class KubernetesDeployerService {
                 .replaceAll("[^a-zA-Z0-9._-]", "-")
                 .replaceAll("-+", "-")
                 .replaceAll("^-|-$", "");
-        
-        // Limit length (Kubernetes label values can be up to 63 chars)
-        if (safeValue.length() > 63) {
-            safeValue = safeValue.substring(0, 63);
+
+        // Limit length (Kubernetes label values can be up to max chars)
+        if (safeValue.length() > KUBERNETES_MAX_LABEL_LENGTH) {
+            safeValue = safeValue.substring(0, KUBERNETES_MAX_LABEL_LENGTH);
         }
-        
+
         // Ensure it doesn't end with dash
         safeValue = safeValue.replaceAll("-$", "");
-        
+
         return safeValue.isEmpty() ? "unknown" : safeValue;
     }
-    
-    private int generateConsistentPort(String edrKey) {
+
+    private int generateConsistentPort() {
         // Use fixed port for standardized service
         // Since we have one proxy at a time, we can use the same port
         return baseProxyPort;
     }
-    
+
     /**
      * Generates a secret name for storing sensitive proxy credentials
      */
     private String generateSecretName(String edrKey) {
         String safeParticipantId = generateSafeParticipantId(participantId);
         String shortEdrKey = edrKey;
-        if (edrKey.startsWith("edr--")) {
-            shortEdrKey = edrKey.substring(5);
+        if (edrKey.startsWith(EDR_KEY_PREFIX)) {
+            shortEdrKey = edrKey.substring(EDR_KEY_PREFIX_LENGTH);
         }
         String secretName = format("kp-%s-%s-secret", safeParticipantId, shortEdrKey);
-        if (secretName.length() > 63) {
-            int maxEdrLength = 63 - safeParticipantId.length() - 11; // 11 for "kp-" + "-secret"
-            if (maxEdrLength > 8) {
+        if (secretName.length() > KUBERNETES_MAX_NAME_LENGTH) {
+            int maxEdrLength = KUBERNETES_MAX_NAME_LENGTH - safeParticipantId.length() - KP_PREFIX_LENGTH - DASH_SEPARATOR_LENGTH - SECRET_SUFFIX_LENGTH;
+            if (maxEdrLength > MIN_EDR_LENGTH_FOR_HASH) {
                 shortEdrKey = shortEdrKey.substring(0, Math.min(shortEdrKey.length(), maxEdrLength));
                 secretName = format("kp-%s-%s-secret", safeParticipantId, shortEdrKey);
             }
         }
         return secretName.toLowerCase().replace("_", "-");
     }
-    
-    /**
-     * Creates a Kubernetes Secret containing sensitive credentials for the proxy
-     */
-    private void createProxySecret(String edrKey, EdrProperties properties) {
+
+    String generateTlsCaConfigMapName(String edrKey) {
+        String safeParticipantId = generateSafeParticipantId(participantId);
+        String shortEdrKey = edrKey;
+        if (edrKey.startsWith(EDR_KEY_PREFIX)) {
+            shortEdrKey = edrKey.substring(EDR_KEY_PREFIX_LENGTH);
+        }
+        String cmName = format("kp-%s-%s-ca", safeParticipantId, shortEdrKey);
+        if (cmName.length() > KUBERNETES_MAX_NAME_LENGTH) {
+            int maxEdrLength = KUBERNETES_MAX_NAME_LENGTH - safeParticipantId.length() - KP_PREFIX_LENGTH - DASH_SEPARATOR_LENGTH - CA_SUFFIX_LENGTH;
+            if (maxEdrLength > MIN_EDR_LENGTH_FOR_HASH) {
+                shortEdrKey = shortEdrKey.substring(0, Math.min(shortEdrKey.length(), maxEdrLength));
+                cmName = format("kp-%s-%s-ca", safeParticipantId, shortEdrKey);
+            }
+        }
+        return cmName.toLowerCase().replace("_", "-");
+    }
+
+    void createOrUpdateTlsCaConfigMap(Resource resource) {
+        String edrKey = resource.edrKey();
+        String proxyName = resource.proxyName();
+        String caCrt = resource.properties().getTlsCaCrt();
+        String deploymentUid = resource.deploymentUid();
+        checkCertificate(edrKey, caCrt);
+
+        String cmName = generateTlsCaConfigMapName(edrKey);
+        ConfigMap configMap = buildTlsCaConfigMap(edrKey, proxyName, cmName, caCrt, deploymentUid);
+
+        createOrUpdateResource(configMap, cmName, "ConfigMap");
+    }
+
+    private void checkCertificate(String edrKey, String caCrt) {
+        if (caCrt == null || caCrt.isBlank()) {
+            throw new IllegalArgumentException(format("CA certificate for EDR %s is empty", edrKey));
+        }
+
+        String cleanedCrt = caCrt.trim();
+        if (!cleanedCrt.contains("-----BEGIN CERTIFICATE-----") || !cleanedCrt.contains("-----END CERTIFICATE-----")) {
+            throw new IllegalArgumentException(format("CA certificate for EDR %s does not have valid PEM delimiters", edrKey));
+        }
+
+        checkBase64(edrKey, cleanedCrt);
+    }
+
+    private void checkBase64(String edrKey, String cleanedCrt) {
+        try {
+            String base64Content = cleanedCrt
+                    .replace("-----BEGIN CERTIFICATE-----", "")
+                    .replace("-----END CERTIFICATE-----", "")
+                    .replaceAll("\\s+", "");
+
+            if (base64Content.isEmpty()) {
+                throw new IllegalArgumentException("Certificate content is empty");
+            }
+
+            java.util.Base64.getDecoder().decode(base64Content);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(format("CA certificate content for EDR %s is not valid Base64 format: %s", edrKey, e.getMessage()));
+        }
+    }
+
+    private ConfigMap buildTlsCaConfigMap(String edrKey, String proxyName, String cmName, String caCrt, String deploymentUid) {
+        Map<String, String> labels = new HashMap<>();
+        labels.put("app.kubernetes.io/name", "kafka-proxy");
+        labels.put("app.kubernetes.io/component", "tls-ca");
+        labels.put("app.kubernetes.io/managed-by", "kafka-proxy-k8s-manager");
+        labels.put("edr-id", edrKey);
+        labels.put("owner-participant", generateSafeParticipantId(participantId));
+
+        var cmBuilder = new ConfigMapBuilder()
+                .withNewMetadata()
+                .withName(cmName)
+                .withNamespace(proxyNamespace)
+                .withLabels(labels);
+
+        if (deploymentUid != null) {
+            cmBuilder.withOwnerReferences(new OwnerReferenceBuilder()
+                    .withApiVersion("apps/v1")
+                    .withKind("Deployment")
+                    .withName(proxyName)
+                    .withUid(deploymentUid)
+                    .withBlockOwnerDeletion(true)
+                    .withController(true)
+                    .build());
+        }
+
+        return cmBuilder
+                .endMetadata()
+                .addToData(CA_CRT, caCrt)
+                .build();
+    }
+
+    private void createOrUpdateProxySecret(Resource resource) {
+        String edrKey = resource.edrKey();
+        EdrProperties properties = resource.properties();
+        String deploymentUid = resource.deploymentUid();
         String secretName = generateSecretName(edrKey);
+        String proxyName = generateProxyName(edrKey);
+
+        Secret secret = buildProxySecret(edrKey, proxyName, secretName, properties, deploymentUid);
+
+        if (secret != null) {
+            createOrUpdateResource(secret, secretName, "Secret");
+        }
+    }
+
+    private Secret buildProxySecret(String edrKey, String proxyName, String secretName, EdrProperties properties, String deploymentUid) {
         Map<String, String> secretData = new HashMap<>();
-        
-        // Add SASL credentials if using PLAIN mechanism
+
+        // Add SASL credentials if using a PLAIN mechanism
         if ("PLAIN".equals(properties.getSaslMechanism())) {
             String username = properties.getUsername() != null ? properties.getUsername() : "admin";
             String password = properties.getPassword() != null ? properties.getPassword() : "admin-secret";
@@ -859,56 +1162,79 @@ public class KubernetesDeployerService {
             secretData.put("sasl-password", password);
             LOGGER.info(format("Adding SASL PLAIN credentials to secret %s", secretName));
         }
-        
-        // Add OAuth2 client secret if using OAUTHBEARER mechanism
+
+        // Add OAuth2 client secret if using a OAUTHBEARER mechanism
         if ("OAUTHBEARER".equals(properties.getSaslMechanism()) && properties.hasOauth2Credentials()) {
             secretData.put("oauth2-client-secret", properties.getOauth2ClientSecret());
             LOGGER.info(format("Adding OAuth2 client secret to secret %s", secretName));
         }
-        
+
         // Add auth static users if configured
         if (authEnabled && authStaticUsers != null && !authStaticUsers.isEmpty()) {
             secretData.put("auth-static-users", authStaticUsers);
             LOGGER.info(format("Adding auth static users to secret %s", secretName));
         }
-        
-        // Only create secret if there's data to store
-        if (!secretData.isEmpty()) {
-            Map<String, String> labels = new HashMap<>();
-            labels.put("app.kubernetes.io/name", "kafka-proxy");
-            labels.put("app.kubernetes.io/component", "credentials");
-            labels.put("app.kubernetes.io/managed-by", "kafka-proxy-k8s-manager");
-            labels.put("edr-id", edrKey);
-            labels.put("owner-participant", generateSafeParticipantId(participantId));
-            
-            var secret = new SecretBuilder()
-                    .withNewMetadata()
-                        .withName(secretName)
-                        .withNamespace(proxyNamespace)
-                        .withLabels(labels)
-                    .endMetadata()
-                    .withType("Opaque")
-                    .withStringData(secretData)
-                    .build();
-            
-            try {
-                // Create or update the secret
-                var existing = kubernetesClient.secrets()
-                        .inNamespace(proxyNamespace)
-                        .withName(secretName)
-                        .get();
-                
-                if (existing != null) {
-                    kubernetesClient.resource(secret).inNamespace(proxyNamespace).update();
-                    LOGGER.info(format("Updated secret %s in namespace %s", secretName, proxyNamespace));
-                } else {
-                    kubernetesClient.resource(secret).inNamespace(proxyNamespace).create();
-                    LOGGER.info(format("Created secret %s in namespace %s", secretName, proxyNamespace));
-                }
-            } catch (Exception e) {
-                LOGGER.severe(format("Failed to create/update secret %s: %s", secretName, e.getMessage()));
-                throw e;
+
+        if (secretData.isEmpty()) {
+            return null;
+        }
+
+        // Only create a secret if there's data to store
+        Map<String, String> labels = new HashMap<>();
+        labels.put("app.kubernetes.io/name", "kafka-proxy");
+        labels.put("app.kubernetes.io/component", "credentials");
+        labels.put("app.kubernetes.io/managed-by", "kafka-proxy-k8s-manager");
+        labels.put("edr-id", edrKey);
+        labels.put("owner-participant", generateSafeParticipantId(participantId));
+
+        var secretBuilder = new SecretBuilder()
+                .withNewMetadata()
+                .withName(secretName)
+                .withNamespace(proxyNamespace)
+                .withLabels(labels);
+
+        // Add OwnerReference if deployment UID is provided
+        if (deploymentUid != null) {
+            secretBuilder.withOwnerReferences(new OwnerReferenceBuilder()
+                    .withApiVersion("apps/v1")
+                    .withKind("Deployment")
+                    .withName(proxyName)
+                    .withUid(deploymentUid)
+                    .withBlockOwnerDeletion(true)
+                    .withController(true)
+                    .build());
+        }
+
+        return secretBuilder
+                .endMetadata()
+                .withType("Opaque")
+                .withStringData(secretData)
+                .build();
+    }
+
+    private void createOrUpdateResource(HasMetadata resource, String name, String kind) {
+        try {
+            HasMetadata existing;
+            if ("ConfigMap".equals(kind)) {
+                existing = kubernetesClient.configMaps().inNamespace(proxyNamespace).withName(name).get();
+            } else if ("Secret".equals(kind)) {
+                existing = kubernetesClient.secrets().inNamespace(proxyNamespace).withName(name).get();
+            } else if ("Service".equals(kind)) {
+                existing = kubernetesClient.services().inNamespace(proxyNamespace).withName(name).get();
+            } else {
+                throw new IllegalArgumentException("Unsupported resource kind: " + kind);
             }
+
+            if (existing != null) {
+                kubernetesClient.resource(resource).inNamespace(proxyNamespace).update();
+                LOGGER.info(format("Updated %s %s in namespace %s", kind, name, proxyNamespace));
+            } else {
+                kubernetesClient.resource(resource).inNamespace(proxyNamespace).create();
+                LOGGER.info(format("Created %s %s in namespace %s", kind, name, proxyNamespace));
+            }
+        } catch (Exception e) {
+            LOGGER.severe(format("Failed to create/update %s %s: %s", kind, name, e.getMessage()));
+            throw e;
         }
     }
 }

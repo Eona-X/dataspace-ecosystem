@@ -13,7 +13,6 @@
 
 package org.eclipse.dse.core.kafkaproxy.service;
 
-import com.bettercloud.vault.SslConfig;
 import com.bettercloud.vault.Vault;
 import com.bettercloud.vault.VaultConfig;
 import com.bettercloud.vault.VaultException;
@@ -28,9 +27,6 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.X509Certificate;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -40,14 +36,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.SSLSession;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.X509TrustManager;
 
 import static java.lang.String.format;
+import static org.eclipse.dse.core.kafkaproxy.service.VaultService.EDC_NS_URL;
 
 /**
  * Service for automatic discovery of Kafka EDRs from HashiCorp Vault
@@ -64,24 +55,12 @@ public class VaultDiscoveryService {
     private final String vaultFolder;
     private final ObjectMapper objectMapper;
     private final Map<String, EdrDiscoveryResult> discoveryCache = new ConcurrentHashMap<>();
-    private final SSLContext sslContext;
-    private final HostnameVerifier hostnameVerifier;
     
     public VaultDiscoveryService(String vaultAddress, String vaultToken, String vaultFolder) {
         try {
-            // Initialize SSL context for HTTPS connections
-            this.sslContext = createTrustAllSslContext();
-            this.hostnameVerifier = createTrustAllHostnameVerifier();
-            
-            // Configure VaultConfig with SSL verification disabled for self-signed certificates
-            SslConfig sslConfig = new SslConfig()
-                    .verify(false)  // Disable SSL verification for self-signed certificates
-                    .build();
-            
             VaultConfig config = new VaultConfig()
                     .address(vaultAddress)
                     .token(vaultToken)
-                    .sslConfig(sslConfig)  // Apply SSL config
                     .build();
             this.vault = new Vault(config);
             this.vaultAddress = vaultAddress;
@@ -92,68 +71,6 @@ public class VaultDiscoveryService {
             LOGGER.info(format("VaultDiscoveryService initialized with vault at: %s, folder: %s (SSL verification disabled)", vaultAddress, folderInfo));
         } catch (VaultException e) {
             throw new RuntimeException("Failed to initialize Vault client for discovery", e);
-        }
-    }
-    
-    /**
-     * Creates an SSL context that trusts all certificates.
-     * WARNING: This should only be used in development/testing environments or when
-     * connecting to internal systems with self-signed certificates.
-     */
-    private SSLContext createTrustAllSslContext() {
-        try {
-            // Create a trust manager that does not validate certificate chains
-            TrustManager[] trustAllCerts = new TrustManager[] {
-                new X509TrustManager() {
-                    @Override
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return new X509Certificate[0];
-                    }
-                    
-                    @Override
-                    public void checkClientTrusted(X509Certificate[] certs, String authType) {
-                        // Trust all clients
-                    }
-                    
-                    @Override
-                    public void checkServerTrusted(X509Certificate[] certs, String authType) {
-                        // Trust all servers
-                    }
-                }
-            };
-            
-            // Install the all-trusting trust manager
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(null, trustAllCerts, new java.security.SecureRandom());
-            LOGGER.info("SSL context initialized to trust all certificates");
-            return sc;
-        } catch (NoSuchAlgorithmException | KeyManagementException e) {
-            LOGGER.severe(format("Failed to create SSL context: %s", e.getMessage()));
-            throw new RuntimeException("Failed to initialize SSL context", e);
-        }
-    }
-    
-    /**
-     * Creates a hostname verifier that accepts all hostnames.
-     * WARNING: This should only be used in development/testing environments.
-     */
-    private HostnameVerifier createTrustAllHostnameVerifier() {
-        return new HostnameVerifier() {
-            @Override
-            public boolean verify(String hostname, SSLSession session) {
-                return true;
-            }
-        };
-    }
-    
-    /**
-     * Configures an HttpURLConnection to use the trust-all SSL context if it's an HTTPS connection.
-     */
-    private void configureSsl(HttpURLConnection conn) {
-        if (conn instanceof HttpsURLConnection) {
-            HttpsURLConnection httpsConn = (HttpsURLConnection) conn;
-            httpsConn.setSSLSocketFactory(sslContext.getSocketFactory());
-            httpsConn.setHostnameVerifier(hostnameVerifier);
         }
     }
     
@@ -175,9 +92,9 @@ public class VaultDiscoveryService {
      * Get the vault HTTP API path for metadata (with folder support)
      */
     private String getMetadataApiPath(String edrKey) {
-        return vaultFolder.isEmpty() 
-            ? "/v1/secret/metadata/" + edrKey 
-            : "/v1/secret/metadata/" + vaultFolder + "/" + edrKey;
+        return vaultFolder.isEmpty()
+                ? "/v1/secret/metadata/" + edrKey
+                : "/v1/secret/metadata/" + vaultFolder + "/" + edrKey;
     }
     
     /**
@@ -248,7 +165,6 @@ public class VaultDiscoveryService {
             String apiUrl = vaultAddress + getMetadataApiPath(edrKey);
             URL url = new URL(apiUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            configureSsl(conn);  // Configure SSL for HTTPS connections
             conn.setRequestMethod("GET");
             conn.setRequestProperty("X-Vault-Token", vaultToken);
             
@@ -307,7 +223,6 @@ public class VaultDiscoveryService {
             
             URL url = new URL(apiUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            configureSsl(conn);  // Configure SSL for HTTPS connections
             conn.setRequestMethod("GET");
             conn.setRequestProperty("X-Vault-Token", vaultToken);
             
@@ -520,7 +435,7 @@ public class VaultDiscoveryService {
             JsonNode properties = contentNode.get("properties");
             
             if (properties != null) {
-                String edrType = properties.path("https://w3id.org/edc/v0.0.1/ns/type").asText("");
+                String edrType = properties.path(EDC_NS_URL + "/type").asText("");
                 // Case-insensitive comparison to accept both "Kafka" and "kafka"
                 boolean isKafka = KAFKA_TYPE.equalsIgnoreCase(edrType);
                 LOGGER.info(format("EDR %s type: %s (is_kafka: %s)", edrKey, edrType, isKafka));
@@ -558,15 +473,15 @@ public class VaultDiscoveryService {
             JsonNode dataAddressProps = contentNode.at("/dataAddress/properties");
             
             String bootstrapServers = getPropertyValue(properties, dataAddressProps,
-                    "https://w3id.org/edc/v0.0.1/ns/kafka.bootstrap.servers", "kafka.bootstrap.servers");
+                    EDC_NS_URL + "/kafka.bootstrap.servers", "kafka.bootstrap.servers");
             String topic = getPropertyValue(properties, dataAddressProps,
-                    "https://w3id.org/edc/v0.0.1/ns/topic", "topic");
+                    EDC_NS_URL + "/topic", "topic");
             String securityProtocol = getPropertyValue(properties, dataAddressProps,
-                    "https://w3id.org/edc/v0.0.1/ns/security.protocol", "security.protocol");
+                    EDC_NS_URL + "/security.protocol", "security.protocol");
             String saslMechanism = getPropertyValue(properties, dataAddressProps,
-                    "https://w3id.org/edc/v0.0.1/ns/sasl.mechanism", "sasl.mechanism");
+                    EDC_NS_URL + "/sasl.mechanism", "sasl.mechanism");
             String saslJaasConfig = getPropertyValue(properties, dataAddressProps,
-                    "https://w3id.org/edc/v0.0.1/ns/sasl.jaas.config", "sasl.jaas.config");
+                    EDC_NS_URL + "/sasl.jaas.config", "sasl.jaas.config");
             
             // Set defaults if not provided
             if (securityProtocol == null || securityProtocol.isEmpty()) {
@@ -636,7 +551,6 @@ public class VaultDiscoveryService {
             // Make HTTP POST request
             URL url = new URL(apiUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            configureSsl(conn);  // Configure SSL for HTTPS connections
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setRequestProperty("X-Vault-Token", vaultToken);
@@ -699,7 +613,7 @@ public class VaultDiscoveryService {
         
         public boolean hasRequiredProperties() {
             return bootstrapServers != null && !bootstrapServers.isEmpty() &&
-                   topic != null && !topic.isEmpty();
+                    topic != null && !topic.isEmpty();
         }
         
         // Getters
@@ -744,7 +658,6 @@ public class VaultDiscoveryService {
             
             URL url = new URL(apiUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            configureSsl(conn);  // Configure SSL for HTTPS connections
             conn.setRequestMethod("GET");
             conn.setRequestProperty("X-Vault-Token", vaultToken);
             

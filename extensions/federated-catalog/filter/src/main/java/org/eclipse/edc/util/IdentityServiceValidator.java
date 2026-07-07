@@ -20,8 +20,7 @@ public class IdentityServiceValidator {
 
     private final Monitor monitor;
 
-    protected static final String MEMBERSHIP_SCOPE = "%s:MembershipCredential:read".formatted(DSE_VC_TYPE_SCOPE_ALIAS);
-    protected static final String READ_DOMAIN_CREDENTIAL_SCOPE = "%s:DomainCredential:read".formatted(DSE_VC_TYPE_SCOPE_ALIAS);
+    protected static final String READ_ALL_CREDENTIAL_SCOPE = "%s:VerifiableCredential:read".formatted(DSE_VC_TYPE_SCOPE_ALIAS);
 
     private static final String DISCOVERABILITY_USE_ACTION = "discoverability:use";
 
@@ -31,19 +30,21 @@ public class IdentityServiceValidator {
     }
 
     public ClaimToken validate(TokenRepresentation uncheckedToken) {
-        List<String> scopes = List.of(MEMBERSHIP_SCOPE, READ_DOMAIN_CREDENTIAL_SCOPE);
-        var verificationContext = VerificationContext.Builder.newInstance()
+        List<String> scopes = List.of(READ_ALL_CREDENTIAL_SCOPE);
+        Result<ClaimToken> validClaims = identityService.verifyJwtToken(uncheckedToken, createContext(scopes));
+        if (validClaims.failed()) {
+            monitor.warning("Token validation failed " + validClaims.getFailureMessages());
+        }
+        return validClaims.getContent();
+    }
+
+    private VerificationContext createContext(List<String> scopes) {
+        return VerificationContext.Builder.newInstance()
                 .policy(Policy.Builder.newInstance()
                         .permission(Permission.Builder.newInstance()
                                 .action(Action.Builder.newInstance()
                                         .type(DISCOVERABILITY_USE_ACTION).build()).build()).build())
                 .scopes(scopes)
                 .build();
-        Result<ClaimToken> validClaims = identityService.verifyJwtToken(uncheckedToken, verificationContext);
-        if (validClaims.failed()) {
-            monitor.warning("Token validation failed: " + validClaims.getFailureMessages());
-            throw new IllegalArgumentException("Token validation failed: " + validClaims.getFailureMessages());
-        }
-        return validClaims.getContent();
     }
 }

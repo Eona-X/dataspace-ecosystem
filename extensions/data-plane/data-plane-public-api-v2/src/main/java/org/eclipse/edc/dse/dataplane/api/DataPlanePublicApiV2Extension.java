@@ -100,7 +100,7 @@ public class DataPlanePublicApiV2Extension implements ServiceExtension {
         generatorService.addGeneratorFunction("HttpData", dataAddress -> endpoint);
 
         if (publicApiResponseUrl != null) {
-            generatorService.addGeneratorFunction("HttpData", () -> Endpoint.url(publicApiResponseUrl));
+            generatorService.addGeneratorFunction("HttpData", dataAddress -> Endpoint.url(publicApiResponseUrl));
         }
 
         var publicApiController = new DataPlanePublicApiV2Controller(pipelineService, executorService, authorizationService);

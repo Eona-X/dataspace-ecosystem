@@ -1,10 +1,28 @@
 import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
+import com.bmuschko.gradle.docker.tasks.image.DockerPushImage
 import com.github.jengelman.gradle.plugins.shadow.ShadowJavaPlugin
 
 plugins {
     `java-library`
     id("com.bmuschko.docker-remote-api") version "9.3.4"
     id("com.github.johnrengelman.shadow") version "8.1.1"
+    alias(libs.plugins.edc.build)
+    checkstyle
+}
+
+afterEvaluate {
+    extensions.findByName("openApiMerger")?.let { ext ->
+        (ext as com.rameshkp.openapi.merger.gradle.extensions.OpenApiMergerExtension).apply {
+            openApi {
+                openApiVersion.set("3.0.1")
+                info {
+                    title.set("Dataspace Ecosystem APIs")
+                    description.set("Merged OpenAPI specification for all Dataspace Ecosystem extensions")
+                    version.set(project.version.toString())
+                }
+            }
+        }
+    }
 }
 
 val annotationProcessorVersion: String by project
@@ -17,6 +35,7 @@ val loadToKind = project.hasProperty("loadToKind")
 allprojects {
 
     apply(plugin = "${group}.edc-build")
+    apply(plugin = "org.eclipse.edc.autodoc")
 
     // configure which version of the annotation processor to use. defaults to the same version as the plugin
     configure<org.eclipse.edc.plugins.autodoc.AutodocExtension> {
@@ -37,15 +56,30 @@ allprojects {
     }
 
     configure<CheckstyleExtension> {
-        configFile = rootProject.file("resources/checkstyle-config.xml")
+        toolVersion = "10.12.4"
+        configFile = rootProject.file("resources/checkstyle.xml")
         configDirectory.set(rootProject.file("resources"))
+        isIgnoreFailures = false
+
+        val suppressionFile = rootProject.file("resources/checkstyle-suppressions.xml")
+        configProperties = mapOf(
+            "org.checkstyle.google.suppressionfilter.config" to suppressionFile.absolutePath,
+            "checkstyle.suppressions.file" to suppressionFile.absolutePath
+        )
+    }
+
+    // Force secure Netty version to fix vulnerable component: netty-codec-http2
+    configurations.all {
+        resolutionStrategy {
+            force("io.netty:netty-codec-http2:4.2.4.Final")
+        }
     }
 }
 
 subprojects {
     afterEvaluate {
         val vaultType: String = project.findProperty("vaultType") as? String ?: "hashicorp"
-        
+
         // Skip building Docker images for non-selected vault variants
         val shouldSkipVaultVariant = when {
             vaultType == "both" -> false  // Build all variants when vaultType=both
@@ -158,7 +192,12 @@ subprojects {
 
             val dockerTask: DockerBuildImage = tasks.create("dockerize", DockerBuildImage::class) {
                 project.plugins.apply("com.bmuschko.docker-remote-api")
-                images.add("${project.name}:latest")
+
+                val imageTag = project.findProperty("imageTag")?.toString() ?: "latest"
+                val registryHost = project.findProperty("registryHost")?.toString() ?: "localhost"
+                val registryNs = project.findProperty("registryNs")?.toString() ?: "local"
+
+                images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
                 // specify platform with the -Dplatform flag:
                 if (System.getProperty("platform") != null)
                     platform.set(System.getProperty("platform"))
@@ -169,6 +208,26 @@ subprojects {
             // make sure  always runs after "dockerize" and after "copyOtel"
             dockerTask.dependsOn(tasks.named(ShadowJavaPlugin.SHADOW_JAR_TASK_NAME))
                 .dependsOn(downloadOtel)
+
+            // Only create dockerPushTask if not running locally
+            val registryHostForPush = project.findProperty("registryHost")?.toString() ?: "localhost"
+            if (registryHostForPush != "localhost") {
+                val dockerPushTask: DockerPushImage = tasks.create("dockerPush", DockerPushImage::class) {
+                    group = "distribution"
+                    description = "Push Docker image to registry"
+                    project.plugins.apply("com.bmuschko.docker-remote-api")
+
+                    val imageTag = project.findProperty("imageTag")?.toString() ?: "latest"
+                    val registryHost = project.findProperty("registryHost")?.toString() ?: "localhost"
+                    val registryNs = project.findProperty("registryNs")?.toString() ?: "local"
+
+                    images.add("${registryHost}/${registryNs}/${project.name}:${imageTag}")
+                }
+                // Ensure push happens after build
+                dockerPushTask.dependsOn(dockerTask)
+            }
+
+
         }
     }
 }
@@ -176,6 +235,8 @@ subprojects {
 buildscript {
     dependencies {
         val edcGradlePluginsVersion: String by project
+        val version: String by project
         classpath("org.eclipse.edc.edc-build:org.eclipse.edc.edc-build.gradle.plugin:${edcGradlePluginsVersion}")
+        classpath("org.eclipse.edc.autodoc:org.eclipse.edc.autodoc.gradle.plugin:$version")
     }
 }

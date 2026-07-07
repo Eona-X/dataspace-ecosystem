@@ -2,12 +2,16 @@ package org.eclipse.edc.issuerservice.api;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeIn;
+import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;
 import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.eclipse.dse.spi.issuerservice.DomainAttestation;
 import org.eclipse.edc.spi.query.QuerySpec;
@@ -15,7 +19,21 @@ import org.eclipse.edc.web.spi.ApiErrorDetail;
 
 import java.util.Collection;
 
-@OpenAPIDefinition(info = @Info(description = "This API is used to manipulate domain attestations", title = "Issuer Service Domain Attestation API", version = "1"))
+@OpenAPIDefinition(info = @Info(description = "This API is used to manipulate domain attestations",
+        title = "Issuer Service Domain Attestation API",
+        version = "1"), security = {@SecurityRequirement(name = "bearerAuth"), @SecurityRequirement(name = "apiKeyAuth")})
+@SecurityScheme(
+        name = "bearerAuth",
+        type = SecuritySchemeType.HTTP,
+        scheme = "bearer",
+        bearerFormat = "JWT"
+)
+@SecurityScheme(
+        name = "apiKeyAuth",
+        type = SecuritySchemeType.APIKEY,
+        in = SecuritySchemeIn.HEADER,
+        paramName = "x-api-key"
+)
 @Tag(name = "Domain Attestation Admin API")
 public interface DomainAttestationAdminApi {
 

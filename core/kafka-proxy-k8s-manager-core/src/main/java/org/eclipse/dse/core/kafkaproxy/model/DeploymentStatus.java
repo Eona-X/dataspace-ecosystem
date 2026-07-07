@@ -64,8 +64,8 @@ public class DeploymentStatus {
         if (o == null || getClass() != o.getClass()) return false;
         DeploymentStatus that = (DeploymentStatus) o;
         return Objects.equals(edrKey, that.edrKey) &&
-               status == that.status &&
-               Objects.equals(message, that.message);
+                status == that.status &&
+                Objects.equals(message, that.message);
     }
     
     @Override
@@ -76,10 +76,10 @@ public class DeploymentStatus {
     @Override
     public String toString() {
         return "DeploymentStatus{" +
-               "edrKey='" + edrKey + '\'' +
-               ", status=" + status +
-               ", message='" + message + '\'' +
-               ", timestamp=" + timestamp +
-               '}';
+                "edrKey='" + edrKey + '\'' +
+                ", status=" + status +
+                ", message='" + message + '\'' +
+                ", timestamp=" + timestamp +
+                '}';
     }
 }

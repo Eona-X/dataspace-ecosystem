@@ -1,6 +1,0 @@
-apiVersion: v2
-name: federatedcatalogfilter
-description: Deploy an EDC Federated Catalog Filter
-
-type: application
-version: 0.1.0

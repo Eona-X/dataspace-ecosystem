@@ -5,7 +5,7 @@ import org.eclipse.edc.dse.telemetry.repository.JpaUtil;
 import org.eclipse.edc.dse.telemetry.repository.ParticipantRepository;
 import org.eclipse.edc.dse.telemetry.repository.ReportRepository;
 import org.eclipse.edc.dse.telemetry.repository.TelemetryEventRepository;
-import org.eclipse.edc.dse.telemetry.services.storage.AzureStorageService;
+import org.eclipse.edc.dse.telemetry.services.storage.ReportStorageService;
 import org.eclipse.edc.spi.monitor.Monitor;
 
 import java.time.Clock;
@@ -20,21 +20,21 @@ import java.util.concurrent.TimeUnit;
 public class ReportGeneratorScheduler {
 
     private final Monitor monitor;
-    private final AzureStorageService azureStorageService;
+    private final ReportStorageService storageService;
     private final ScheduledExecutorService executor;
     private final Clock clock;
 
-    public ReportGeneratorScheduler(Monitor monitor, AzureStorageService azureStorageService, Clock clock) {
+    public ReportGeneratorScheduler(Monitor monitor, ReportStorageService storageService, Clock clock) {
         this.monitor = monitor;
-        this.azureStorageService = azureStorageService;
+        this.storageService = storageService;
         this.executor = Executors.newSingleThreadScheduledExecutor();
         this.clock = clock;
     }
 
     public void start() {
-        monitor.info("Starting report generation job at " + Instant.now());
+        monitor.info("Starting report generation job at " + Instant.now(clock));
         scheduleNextMonthlyRun();
-        monitor.info("Finished report generation job at " + Instant.now());
+        monitor.info("Finished report generation job at " + Instant.now(clock));
     }
 
     void scheduleNextMonthlyRun() {
@@ -54,7 +54,7 @@ public class ReportGeneratorScheduler {
 
     // Report generation always runs on 2nd day of each month at 02:00 AM
     long computeDelayUntilNextMonthlyRun() {
-        ZonedDateTime now = ZonedDateTime.now(this.clock);
+        ZonedDateTime now = ZonedDateTime.now(clock);
         ZonedDateTime nextRun = now.withDayOfMonth(2)
                 .withHour(2)
                 .withMinute(0)
@@ -69,11 +69,7 @@ public class ReportGeneratorScheduler {
     }
 
     void triggerGeneration() {
-        // The entity manager is not thread-safe, so we create a new one for each execution
-        // The manager should not be shared between threads otherwise we could get ConcurrentModificationException for example
-        // Also, it holds persistence context (first-level cache of every entity we ever touched), so if we keep it open for too long,
-        // we could run out of memory
-        this.monitor.info("Triggering report generation job at " + ZonedDateTime.now(this.clock));
+        this.monitor.info("Triggering report generation job at " + ZonedDateTime.now(clock));
         EntityManager em = JpaUtil.createEntityManager();
         ReportGenerationService service = buildGenerationService(em);
         try {
@@ -82,7 +78,6 @@ public class ReportGeneratorScheduler {
             this.monitor.severe("Error running report scheduler", e);
             throw e;
         } finally {
-            //service.generateErrorReport(LocalDateTime.now(), ReportGenerationService.getErrors());
             if (em.isOpen()) {
                 em.close();
             }
@@ -106,7 +101,7 @@ public class ReportGeneratorScheduler {
     }
 
     public void triggerGenerationForParticipant(String participantName, LocalDateTime reportDateTime, Boolean generateCounterpartyReport) {
-        this.monitor.info("Triggering report generation job at " + ZonedDateTime.now(this.clock));
+        this.monitor.info("Triggering report generation job at " + ZonedDateTime.now(clock));
         EntityManager em = JpaUtil.createEntityManager();
         ReportGenerationService service = buildGenerationService(em);
         try {
@@ -115,7 +110,6 @@ public class ReportGeneratorScheduler {
             this.monitor.severe("Error running report scheduler", e);
             throw e;
         } finally {
-            //service.generateErrorReport(reportDateTime, ReportGenerationService.getErrors());
             if (em.isOpen()) {
                 em.close();
             }
@@ -126,7 +120,7 @@ public class ReportGeneratorScheduler {
         ParticipantRepository participantRepository = new ParticipantRepository(em);
         ReportRepository reportRepository = new ReportRepository(em);
         TelemetryEventRepository telemetryEventRepository = new TelemetryEventRepository(em);
-        return new ReportGenerationService(this.monitor, participantRepository, reportRepository, telemetryEventRepository, this.azureStorageService);
+        return new ReportGenerationService(this.monitor, participantRepository, reportRepository, telemetryEventRepository, this.storageService, this.clock);
     }
 
     public void stop() {

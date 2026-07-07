@@ -11,6 +11,8 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.edc.spi.monitor.Monitor;
 import org.eclipse.edc.web.spi.exception.NotAuthorizedException;
@@ -18,6 +20,7 @@ import org.eclipse.edc.web.spi.exception.NotAuthorizedException;
 import java.security.interfaces.ECPublicKey;
 import java.text.ParseException;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Path("/provider")
 public class ProviderBackendApiController {
@@ -37,6 +40,14 @@ public class ProviderBackendApiController {
     @Produces(MediaType.APPLICATION_JSON)
     public Map<String, String> getData(@DefaultValue("some information") @QueryParam("message") String message) {
         return Map.of("message", message);
+    }
+
+    @Path("/headers")
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String, String> getHeaders(@Context HttpHeaders headers) {
+        return headers.getRequestHeaders().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> String.join(",", entry.getValue())));
     }
 
     @Path("/postdata")

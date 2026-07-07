@@ -24,9 +24,12 @@ import org.eclipse.edc.runtime.metamodel.annotation.Provider;
 import org.eclipse.edc.spi.system.ServiceExtension;
 import org.eclipse.edc.spi.system.ServiceExtensionContext;
 
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+
+import static org.eclipse.dse.core.kafkaproxy.config.KafkaProxyConfig.LARGEST_AVAILABLE_PORT;
 
 /**
  * Extension that provides Kafka Proxy Kubernetes management capabilities
@@ -63,10 +66,11 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         
         boolean authEnabled = context.getConfig().getBoolean(KafkaProxyConfig.AUTH_ENABLED, false);
         String authMechanism = context.getConfig().getString(KafkaProxyConfig.AUTH_MECHANISM, KafkaProxyConfig.DEFAULT_AUTH_MECHANISM);
-        String authTenantId = context.getConfig().getString(KafkaProxyConfig.AUTH_TENANT_ID, "");
         String authClientId = context.getConfig().getString(KafkaProxyConfig.AUTH_CLIENT_ID, "");
         String authStaticUsers = context.getConfig().getString(KafkaProxyConfig.AUTH_STATIC_USERS, "");
         String authImage = context.getConfig().getString(KafkaProxyConfig.AUTH_IMAGE, KafkaProxyConfig.DEFAULT_AUTH_IMAGE);
+        String authImagePullSecret = context.getConfig().getString(KafkaProxyConfig.AUTH_IMAGE_PULL_SECRET,
+                KafkaProxyConfig.DEFAULT_AUTH_IMAGE_PULL_SECRET);
         
         // TLS listener configuration
         boolean tlsListenerEnabled = context.getConfig().getBoolean(KafkaProxyConfig.TLS_LISTENER_ENABLED, false);
@@ -81,10 +85,41 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         int baseProxyPort = context.getConfig().getInteger(KafkaProxyConfig.BASE_PROXY_PORT, 
                 Integer.parseInt(KafkaProxyConfig.DEFAULT_BASE_PROXY_PORT));
         
+        // Maximum broker ports configuration
+        int maxBrokerPorts = context.getConfig().getInteger(KafkaProxyConfig.MAX_BROKER_PORTS,
+                KafkaProxyConfig.MAX_ALLOWED_BROKER_PORTS);
+        if (maxBrokerPorts <= 0) {
+            monitor.warning("Invalid configuration for max broker ports: " + maxBrokerPorts + ". Using default value: " + KafkaProxyConfig.MAX_ALLOWED_BROKER_PORTS);
+            maxBrokerPorts = KafkaProxyConfig.MAX_ALLOWED_BROKER_PORTS;
+        } else {
+            // Ensure maxBrokerPorts does not exceed the default limit to prevent excessive port usage
+            maxBrokerPorts = Math.min(maxBrokerPorts, KafkaProxyConfig.MAX_ALLOWED_BROKER_PORTS);
+        }
+        // ---- Additional validation to ensure port range stays inside 0–65535 ----
+        int highestPort = baseProxyPort + maxBrokerPorts;
+        if (highestPort > LARGEST_AVAILABLE_PORT) {
+            throw new IllegalArgumentException(
+                    "Configured port range exceeds the maximum allowed TCP port. " +
+                            "Base port: " + baseProxyPort +
+                            ", maxBrokerPorts: " + maxBrokerPorts +
+                            ", highestPort: " + highestPort +
+                            ". Maximum allowed port is 65535."
+            );
+        }
+
         // Pod labels configuration (comma-separated key=value pairs, e.g., "env=prod,team=platform")
         String podLabelsConfig = context.getConfig().getString(KafkaProxyConfig.POD_LABELS, "");
         java.util.Map<String, String> additionalPodLabels = parsePodLabels(podLabelsConfig);
         
+        // Service configuration
+        boolean serviceEnabled = context.getConfig().getBoolean(KafkaProxyConfig.SERVICE_ENABLED, false);
+        String serviceType = context.getConfig().getString(KafkaProxyConfig.SERVICE_TYPE, "ClusterIP");
+        String serviceAnnotations = context.getConfig().getString(KafkaProxyConfig.SERVICE_ANNOTATIONS, "");
+        java.util.Map<String, String> serviceAnnotationsMap = parseAnnotations(serviceAnnotations);
+        String serviceLabels = context.getConfig().getString(KafkaProxyConfig.SERVICE_LABELS, "");
+        java.util.Map<String, String> serviceLabelsMap = parsePodLabels(serviceLabels);
+        String serviceFqdnAddress = context.getConfig().getString(KafkaProxyConfig.SERVICE_FQDN, "eona-x.org");
+
         int discoveryInterval = context.getConfig().getInteger(KafkaProxyConfig.DISCOVERY_INTERVAL, Integer.parseInt(KafkaProxyConfig.DEFAULT_DISCOVERY_INTERVAL));
         
         monitor.info("Initializing Kafka Proxy Kubernetes Manager");
@@ -100,10 +135,10 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         monitor.info("  Authentication Enabled: " + authEnabled);
         if (authEnabled) {
             monitor.info("  Authentication Mechanism: " + authMechanism);
-            monitor.info("  Auth Tenant ID: " + authTenantId);
             monitor.info("  Auth Client ID: " + authClientId);
             monitor.info("  Auth Static Users: " + authStaticUsers);
             monitor.info("  Auth Plugin Image: " + authImage);
+            monitor.info("  Auth Plugin Image Pull Secret: " + authImagePullSecret);
         }
         monitor.info("  TLS Listener Enabled: " + tlsListenerEnabled);
         if (tlsListenerEnabled) {
@@ -115,16 +150,30 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
             monitor.info("  Service ClusterIP: " + serviceClusterIp);
         }
         monitor.info("  Base Proxy Port: " + baseProxyPort);
+        monitor.info("  Max Broker Ports: " + maxBrokerPorts);
         if (!additionalPodLabels.isEmpty()) {
             monitor.info("  Additional Pod Labels: " + additionalPodLabels);
+        }
+        monitor.info("  Service Enabled: " + serviceEnabled);
+        if (serviceEnabled) {
+            monitor.info("  Service Type: " + serviceType);
+            monitor.info("  Service FQDN Address: " + serviceFqdnAddress);
+            if (!serviceAnnotationsMap.isEmpty()) {
+                monitor.info("  Service Annotations: " + serviceAnnotationsMap);
+            }
+            if (!serviceLabelsMap.isEmpty()) {
+                monitor.info("  Service Labels: " + serviceLabelsMap);
+            }
         }
         
         // Initialize services
         var kubernetesClient = new DefaultKubernetesClient();
         var vaultService = new VaultService(vaultAddr, vaultToken, vaultFolder);
-        var deployerService = new KubernetesDeployerService(kubernetesClient, proxyNamespace, proxyImage, 
-                vaultService, participantId, serviceClusterIp, baseProxyPort, authEnabled, authMechanism, authTenantId, authClientId, authStaticUsers, authImage,
-                tlsListenerEnabled, tlsListenerCertSecret, tlsListenerKeySecret, tlsListenerCaSecret, additionalPodLabels);
+        var deployerService = new KubernetesDeployerService(kubernetesClient, proxyNamespace, proxyImage, vaultService,
+                participantId, serviceClusterIp, baseProxyPort, authEnabled, authMechanism, authClientId,
+                authStaticUsers, authImage, authImagePullSecret, tlsListenerEnabled, tlsListenerCertSecret,
+                tlsListenerKeySecret, tlsListenerCaSecret, additionalPodLabels, maxBrokerPorts, serviceType,
+                serviceAnnotationsMap, serviceLabelsMap, serviceFqdnAddress);
         var checkerService = new KubernetesCheckerService(kubernetesClient, proxyNamespace, participantId);
         
         var automaticQueueService = new AutomaticDiscoveryQueueService(sharedDir, vaultService, checkerService);
@@ -133,12 +182,12 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
         automaticQueueService.initializeEdrTracking();
         
         orchestrator = new KafkaProxyOrchestrator(
-            vaultService, 
-            deployerService, 
-            checkerService, 
-            automaticQueueService,
-            monitor,
-            true // always enabled
+                vaultService,
+                deployerService,
+                checkerService,
+                automaticQueueService,
+                monitor,
+                true // always enabled
         );
         
         // Start scheduled processing
@@ -177,30 +226,93 @@ public class KafkaProxyKubernetesExtension implements ServiceExtension {
      * Parses pod labels from a comma-separated string of key=value pairs
      * Example: "env=prod,team=platform,version=1.0"
      */
-    private java.util.Map<String, String> parsePodLabels(String podLabelsConfig) {
+    java.util.Map<String, String> parsePodLabels(String podLabelsConfig) {
         java.util.Map<String, String> labels = new java.util.HashMap<>();
         
         if (podLabelsConfig == null || podLabelsConfig.trim().isEmpty()) {
             return labels;
         }
+
+        parseCsv(podLabelsConfig, labels);
+
+        return labels;
+    }
+    
+    /**
+     * Parses annotations from a YAML string or comma-separated key=value pairs
+     * Example YAML: "service.beta.kubernetes.io/aws-load-balancer-type: nlb"
+     * Example CSV: "service.beta.kubernetes.io/aws-load-balancer-type=nlb,service.beta.kubernetes.io/aws-load-balancer-internal=true"
+     */
+    java.util.Map<String, String> parseAnnotations(String annotationsConfig) {
+        java.util.Map<String, String> annotations = new java.util.HashMap<>();
         
-        String[] pairs = podLabelsConfig.split(",");
+        if (annotationsConfig == null || annotationsConfig.trim().isEmpty()) {
+            return annotations;
+        }
+        
+        // Try YAML format first (if contains colons)
+        if (annotationsConfig.contains(":")) {
+            String[] lines = annotationsConfig.split("[\n,]");
+            for (String line : lines) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+                
+                String[] keyValue = line.split(":", 2);
+                processKeyValuePair(annotations, keyValue);
+            }
+        } else {
+            // Fall back to CSV format
+            parseCsv(annotationsConfig, annotations);
+        }
+    
+        return annotations;
+    }
+
+    private void parseCsv(String config, Map<String, String> targetMap) {
+        String[] pairs = config.split(",");
         for (String pair : pairs) {
             pair = pair.trim();
             if (pair.isEmpty()) {
                 continue;
             }
-            
+
             String[] keyValue = pair.split("=", 2);
-            if (keyValue.length == 2) {
-                String key = keyValue[0].trim();
-                String value = keyValue[1].trim();
-                if (!key.isEmpty() && !value.isEmpty()) {
-                    labels.put(key, value);
+            processKeyValuePair(targetMap, keyValue);
+        }
+    }
+
+    private void processKeyValuePair(Map<String, String> targetMap, String[] keyValue) {
+        if (keyValue.length == 2) {
+            String key = keyValue[0].trim();
+            String value = keyValue[1].trim();
+
+            if (!key.isEmpty() && !value.isEmpty()) {
+                if (key.startsWith("\"") && value.endsWith("\"") && !key.endsWith("\"") && !value.startsWith("\"")) {
+                    key = key.substring(1);
+                    value = value.substring(0, value.length() - 1);
+                } else if (key.startsWith("'") && value.endsWith("'") && !key.endsWith("'") && !value.startsWith("'")) {
+                    key = key.substring(1);
+                    value = value.substring(0, value.length() - 1);
                 }
             }
+
+            key = stripQuotes(key.trim());
+            value = stripQuotes(value.trim());
+            if (!key.isEmpty() && !value.isEmpty()) {
+                targetMap.put(key, value);
+            }
         }
-        
-        return labels;
+    }
+
+    private String stripQuotes(String s) {
+        if (s == null || s.length() < 2) {
+            return s;
+        }
+        if ((s.startsWith("\"") && s.endsWith("\"")) || (s.startsWith("'") && s.endsWith("'"))) {
+            return s.substring(1, s.length() - 1);
+        }
+        return s;
     }
 }

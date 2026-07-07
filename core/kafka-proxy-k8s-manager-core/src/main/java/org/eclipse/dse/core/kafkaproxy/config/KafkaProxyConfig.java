@@ -29,6 +29,7 @@ public class KafkaProxyConfig {
     public static final String PARTICIPANT_ID = "kafka.proxy.participant.id";
     public static final String SERVICE_CLUSTER_IP = "kafka.proxy.service.clusterIP";
     public static final String BASE_PROXY_PORT = "kafka.proxy.base.port";
+    public static final String MAX_BROKER_PORTS = "kafka.proxy.max.broker.ports";
     
     // Discovery configuration (always enabled)
     public static final String DISCOVERY_INTERVAL = "kafka.proxy.discovery.interval";
@@ -38,10 +39,10 @@ public class KafkaProxyConfig {
     // Supports PLAIN (JWT-over-PLAIN) and OAUTHBEARER (proper OAuth2) mechanisms
     public static final String AUTH_ENABLED = "kafka.proxy.auth.enabled";
     public static final String AUTH_MECHANISM = "kafka.proxy.auth.mechanism";  // PLAIN or OAUTHBEARER
-    public static final String AUTH_TENANT_ID = "kafka.proxy.auth.tenant.id";
     public static final String AUTH_CLIENT_ID = "kafka.proxy.auth.client.id";
     public static final String AUTH_STATIC_USERS = "kafka.proxy.auth.static.users";  // Only for PLAIN mechanism
     public static final String AUTH_IMAGE = "kafka.proxy.auth.image";
+    public static final String AUTH_IMAGE_PULL_SECRET = "kafka.proxy.auth.imagePullSecret";
     
     // TLS listener configuration
     public static final String TLS_LISTENER_ENABLED = "kafka.proxy.tls.listener.enabled";
@@ -60,13 +61,22 @@ public class KafkaProxyConfig {
     public static final String DEFAULT_SHARED_DIR = "/shared";
     public static final String DEFAULT_PROXY_NAMESPACE = "default";
     public static final String DEFAULT_PROXY_IMAGE = "grepplabs/kafka-proxy:0.4.2";
-    public static final String DEFAULT_AUTH_IMAGE = "kafka-proxy-entra-auth:latest";
+    public static final String DEFAULT_AUTH_IMAGE = "kafka-proxy-oidc-auth:latest";
+    public static final String DEFAULT_AUTH_IMAGE_PULL_SECRET = "";
     public static final String DEFAULT_AUTH_MECHANISM = "PLAIN";  // PLAIN (JWT-over-PLAIN) or OAUTHBEARER (proper OAuth2)
-    public static final String DEFAULT_BASE_PROXY_PORT = "30001";
+    public static final String DEFAULT_BASE_PROXY_PORT = "30003";
+    public static final int MAX_ALLOWED_BROKER_PORTS = 20;
+    public static final int LARGEST_AVAILABLE_PORT = 65535;
     
     // Discovery defaults (always enabled)
     public static final String DEFAULT_DISCOVERY_INTERVAL = "10";  // in seconds
     public static final String DEFAULT_EDR_PREFIX = "edr--";
+
+    public static final String SERVICE_ENABLED = "kafka.proxy.service.enabled";
+    public static final String SERVICE_TYPE = "kafka.proxy.service.type";
+    public static final String SERVICE_ANNOTATIONS = "kafka.proxy.service.annotations";
+    public static final String SERVICE_LABELS = "kafka.proxy.service.labels";
+    public static final String SERVICE_FQDN = "kafka.proxy.service.fqdn";
     
     private KafkaProxyConfig() {
         // Utility class
